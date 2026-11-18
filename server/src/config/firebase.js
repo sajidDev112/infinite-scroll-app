@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { env } from './env.js';
+import { env, normalizePrivateKey } from './env.js';
 
 let db = null;
 let bucket = null;
@@ -12,7 +12,7 @@ function credential() {
   const f = env.firebase;
   if (f.serviceAccountPath) {
     const json = JSON.parse(readFileSync(resolve(process.cwd(), f.serviceAccountPath), 'utf8'));
-    return cert(json);
+    return cert({ ...json, private_key: normalizePrivateKey(json.private_key) });
   }
   if (f.projectId && f.clientEmail && f.privateKey) {
     return cert({ projectId: f.projectId, clientEmail: f.clientEmail, privateKey: f.privateKey });

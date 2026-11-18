@@ -1,3 +1,8 @@
+import { existsSync } from 'node:fs';
+
+/** Render "Secret Files" are mounted here; used automatically when present. */
+const RENDER_SECRET_FILE = '/etc/secrets/serviceAccount.json';
+
 const list = (v, fallback) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : fallback);
 
 /**
@@ -56,10 +61,11 @@ export const env = {
   storageDriver: (process.env.STORAGE_DRIVER || 'local').toLowerCase(),
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   firebase: {
-    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
-    projectId: (process.env.FIREBASE_PROJECT_ID || sa.projectId || '').trim().replace(/^["']|["']$/g, ''),
-    clientEmail: (process.env.FIREBASE_CLIENT_EMAIL || sa.clientEmail || '').trim().replace(/^["']|["']$/g, ''),
-    privateKey: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY || sa.privateKey),
+    // Order: explicit path → Render secret file → FIREBASE_SERVICE_ACCOUNT_JSON → the three inline values.
+    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || (existsSync(RENDER_SECRET_FILE) ? RENDER_SECRET_FILE : ''),
+    projectId: (sa.projectId || process.env.FIREBASE_PROJECT_ID || '').trim().replace(/^["']|["']$/g, ''),
+    clientEmail: (sa.clientEmail || process.env.FIREBASE_CLIENT_EMAIL || '').trim().replace(/^["']|["']$/g, ''),
+    privateKey: normalizePrivateKey(sa.privateKey || process.env.FIREBASE_PRIVATE_KEY),
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
   },
 };
@@ -75,8 +81,16 @@ export function assertEnv() {
   if (!f.serviceAccountPath && !hasInline && !process.env.FIRESTORE_EMULATOR_HOST) {
     problems.push('Set FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
   }
-  if (f.privateKey && !/^-----BEGIN [A-Z ]*PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+\n-----END [A-Z ]*PRIVATE KEY-----\n$/.test(f.privateKey)) {
-    problems.push('FIREBASE_PRIVATE_KEY is not a complete private key. Paste the whole "private_key" value from the service-account JSON, from -----BEGIN PRIVATE KEY----- to -----END PRIVATE KEY-----.');
+  if (!f.serviceAccountPath && f.privateKey && !/^-----BEGIN [A-Z ]*PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+\n-----END [A-Z ]*PRIVATE KEY-----\n$/.test(f.privateKey)) {
+    // Describe what arrived without printing any of the secret.
+    const raw = String(process.env.FIREBASE_PRIVATE_KEY || '');
+    problems.push(
+      'FIREBASE_PRIVATE_KEY is not a complete private key. Paste the whole "private_key" value from the service-account JSON, '
+      + 'from -----BEGIN PRIVATE KEY----- to -----END PRIVATE KEY----- (a full key is about 1,700 characters). '
+      + `Received: ${raw.length} characters, ${raw.split(/\r?\n/).length} line(s), `
+      + `BEGIN line ${raw.includes('-----BEGIN') ? 'found' : 'missing'}, END line ${raw.includes('-----END') ? 'found' : 'missing'}. `
+      + 'Easiest fix on Render: add a Secret File named serviceAccount.json instead.',
+    );
   }
   if (!['local', 'firebase'].includes(env.storageDriver)) problems.push("STORAGE_DRIVER must be 'local' or 'firebase'.");
   if (env.storageDriver === 'firebase' && !f.storageBucket) {
