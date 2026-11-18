@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
 import { env } from '../config/env.js';
 import { getBucket } from '../config/firebase.js';
+import { deleteFirestoreFile, putFirestoreFile } from './firestoreFiles.js';
 
 /**
  * Where image files live. STORAGE_DRIVER=local (default) keeps them in server/uploads
@@ -26,6 +27,10 @@ export function downloadUrl(bucketName, path, token) {
 
 /** Stores a WebP file and returns the URL clients load it from. */
 export async function putFile(path, buffer) {
+  if (env.storageDriver === 'firestore') {
+    await putFirestoreFile(path, buffer, 'image/webp');
+    return LOCAL_PREFIX + path; // same /uploads/ links as local files
+  }
   if (env.storageDriver === 'local') {
     const full = localPath(path);
     await mkdir(dirname(full), { recursive: true });
@@ -48,6 +53,7 @@ export async function putFile(path, buffer) {
 
 export async function deleteFile(path) {
   if (!path) return;
+  if (env.storageDriver === 'firestore') return deleteFirestoreFile(path);
   if (env.storageDriver === 'local') {
     await rm(localPath(path), { force: true });
     // Remove the now-empty per-image folder.

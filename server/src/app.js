@@ -14,6 +14,7 @@ import { dashboardStats } from './services/storyService.js';
 import { countImages } from './services/imageService.js';
 import { UPLOADS_DIR } from './services/fileStorage.js';
 import { mountWebApps } from './web.js';
+import { serveFirestoreFile } from './services/firestoreFiles.js';
 
 export function createApp() {
   const app = express();
@@ -51,8 +52,10 @@ export function createApp() {
     maxAge: '365d',
     index: false,
     dotfiles: 'deny',
-    fallthrough: false,
+    // With STORAGE_DRIVER=firestore, anything not on disk is read from Firestore below.
+    fallthrough: env.storageDriver === 'firestore',
   }));
+  if (env.storageDriver === 'firestore') app.get('/uploads/*path', serveFirestoreFile);
 
   app.use('/api/desktop', publicCors, desktopRoutes);
   app.use('/api', adminCors, express.json({ limit: '2mb' }));

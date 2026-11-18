@@ -9,7 +9,8 @@
     "start": "node --env-file-if-exists=.env src/index.js",
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
     "test": "node --test test/*.test.js",
-    "migrate-uploads": "node --env-file-if-exists=.env scripts/migrate-uploads.js"
+    "migrate-uploads": "node --env-file-if-exists=.env scripts/migrate-uploads.js",
+    "upload-to-firestore": "node --env-file-if-exists=.env scripts/upload-to-firestore.js"
   },
   "engines": {
     "node": ">=20.12"

@@ -79,7 +79,8 @@ export const env = {
   jwtRememberExpiresIn: process.env.JWT_REMEMBER_EXPIRES_IN || '30d',
   corsOrigins: list(process.env.CORS_ORIGINS, ['http://localhost:5173']),
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB) || 15,
-  // 'local' → images saved in UPLOADS_DIR and served by this server; 'firebase' → Firebase Storage.
+  // 'local' → images saved in UPLOADS_DIR and served by this server; 'firestore' → saved in
+  // Firestore and served by this server (no disk or Storage needed); 'firebase' → Firebase Storage.
   storageDriver: (process.env.STORAGE_DRIVER || 'local').toLowerCase(),
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   firebase: {
@@ -118,7 +119,7 @@ export function assertEnv() {
       + 'Easiest fix on Render: add a Secret File named serviceAccount.json instead.',
     );
   }
-  if (!['local', 'firebase'].includes(env.storageDriver)) problems.push("STORAGE_DRIVER must be 'local' or 'firebase'.");
+  if (!['local', 'firebase', 'firestore'].includes(env.storageDriver)) problems.push("STORAGE_DRIVER must be 'local', 'firestore' or 'firebase'.");
   if (env.storageDriver === 'firebase' && !f.storageBucket) {
     problems.push('FIREBASE_STORAGE_BUCKET must be set when STORAGE_DRIVER=firebase (e.g. my-project.firebasestorage.app).');
   }

@@ -8,7 +8,7 @@ services:
   - type: web
     name: infinite-scroll-app
     runtime: node
-    plan: free # images need a paid plan + disk (below) or Firebase Storage to survive restarts
+    plan: free
     buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/health
@@ -40,7 +40,7 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: STORAGE_DRIVER
-        value: local
+        value: firestore # images kept in Firestore (no disk or Storage bucket needed)
       # With the disk below, also add:  - key: UPLOADS_DIR / value: /var/data/uploads
     # Uncomment with plan: starter (or higher) so uploaded images are kept across deploys:
     # disk:
