@@ -87,6 +87,9 @@ One Web Service runs the API and also serves the built admin and client sites
 2. Fill in the values it asks for: `CORS_ORIGINS` (your `https://<name>.onrender.com`),
    `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (paste with the
    `\n` line breaks, as in `.env`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`. `JWT_SECRET` is generated.
+   Simpler alternative for Firebase: add one variable `FIREBASE_SERVICE_ACCOUNT_JSON` and paste the
+   whole downloaded service-account JSON file into it (then the three FIREBASE_* values aren't needed).
+   The key is accepted with or without quotes, with `\n` or real line breaks.
 3. **Images:** the free plan wipes files on every deploy/restart. Either use a paid plan with
    the disk in `render.yaml` (+ `UPLOADS_DIR=/var/data/uploads`), or `STORAGE_DRIVER=firebase`
    with `FIREBASE_STORAGE_BUCKET`. Images in your local `server/uploads` are not in Git —

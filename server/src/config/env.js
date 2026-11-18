@@ -1,5 +1,47 @@
 const list = (v, fallback) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : fallback);
 
+/**
+ * Accepts the Firebase private key however a hosting dashboard (e.g. Render) received it:
+ * wrapped in quotes, with literal "\n" sequences, real line breaks, Windows line breaks,
+ * line breaks collapsed into spaces, base64-encoded, or the whole service-account JSON.
+ * Returns a clean PEM string.
+ */
+export function normalizePrivateKey(raw) {
+  let key = String(raw || '').trim();
+  if (!key) return '';
+  if (key.startsWith('{')) {
+    try { key = JSON.parse(key).private_key || ''; } catch { /* not JSON, keep going */ }
+  }
+  // Surrounding quotes copied from a .env file.
+  while (key.length > 1 && /^["']/.test(key) && key.endsWith(key[0])) key = key.slice(1, -1).trim();
+  key = key.replace(/\\r/g, '').replace(/\\n/g, '\n').replace(/\r/g, '');
+  if (!key.includes('-----BEGIN')) {
+    try {
+      const decoded = Buffer.from(key, 'base64').toString('utf8');
+      if (decoded.includes('-----BEGIN')) key = decoded.trim();
+    } catch { /* not base64 */ }
+  }
+  // Rebuild the PEM so stray spaces/line breaks inside the body don't matter.
+  const m = key.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END \1-----/);
+  if (!m) return key;
+  const body = m[2].replace(/[^A-Za-z0-9+/=]/g, '');
+  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g).join('\n')}\n-----END ${m[1]}-----\n`;
+}
+
+/** Whole service-account JSON in one variable (FIREBASE_SERVICE_ACCOUNT_JSON). */
+function serviceAccountJson() {
+  const raw = (process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+  if (!raw) return {};
+  try {
+    const text = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+    const j = JSON.parse(text);
+    return { projectId: j.project_id, clientEmail: j.client_email, privateKey: j.private_key };
+  } catch {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON (paste the whole service-account file).');
+  }
+}
+const sa = serviceAccountJson();
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   // API_PORT wins over a generic PORT that a shell or tool may set for something else;
@@ -15,9 +57,9 @@ export const env = {
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   firebase: {
     serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
-    projectId: process.env.FIREBASE_PROJECT_ID || '',
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
-    privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    projectId: (process.env.FIREBASE_PROJECT_ID || sa.projectId || '').trim().replace(/^["']|["']$/g, ''),
+    clientEmail: (process.env.FIREBASE_CLIENT_EMAIL || sa.clientEmail || '').trim().replace(/^["']|["']$/g, ''),
+    privateKey: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY || sa.privateKey),
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
   },
 };
@@ -31,7 +73,10 @@ export function assertEnv() {
   const f = env.firebase;
   const hasInline = f.projectId && f.clientEmail && f.privateKey;
   if (!f.serviceAccountPath && !hasInline && !process.env.FIRESTORE_EMULATOR_HOST) {
-    problems.push('Set FIREBASE_SERVICE_ACCOUNT_PATH, or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+    problems.push('Set FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+  }
+  if (f.privateKey && !/^-----BEGIN [A-Z ]*PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+\n-----END [A-Z ]*PRIVATE KEY-----\n$/.test(f.privateKey)) {
+    problems.push('FIREBASE_PRIVATE_KEY is not a complete private key. Paste the whole "private_key" value from the service-account JSON, from -----BEGIN PRIVATE KEY----- to -----END PRIVATE KEY-----.');
   }
   if (!['local', 'firebase'].includes(env.storageDriver)) problems.push("STORAGE_DRIVER must be 'local' or 'firebase'.");
   if (env.storageDriver === 'firebase' && !f.storageBucket) {
