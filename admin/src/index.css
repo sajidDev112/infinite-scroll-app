@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@import '../../shared/react/player.css';
+
+@source '../../shared/react';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Playfair Display Variable', Georgia, serif;
+
+  --color-ink-950: #08090c;
+  --color-ink-900: #0d0f14;
+  --color-ink-850: #12141b;
+  --color-ink-800: #171a22;
+  --color-ink-750: #1d2029;
+  --color-ink-700: #252935;
+  --color-ink-600: #323746;
+  --color-ink-500: #4a5163;
+  --color-ink-400: #6c7386;
+  --color-ink-300: #9aa1b3;
+  --color-ink-200: #c6cad6;
+  --color-ink-100: #e7e9ef;
+
+  --color-accent-300: #a5b4fc;
+  --color-accent-400: #818cf8;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #5458e8;
+  --color-violet-glow: #8b5cf6;
+
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 24px 64px -16px rgb(0 0 0 / 0.75);
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-ink-950 text-ink-100 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection { background: rgb(99 102 241 / 0.4); }
+  *:focus-visible { outline: 2px solid var(--color-accent-400); outline-offset: 2px; }
+  input[type='range'] { accent-color: var(--color-accent-500); }
+  input[type='number']::-webkit-inner-spin-button { opacity: 0.4; }
+  /* No visible scrollbars anywhere (page and panels); everything still scrolls with wheel, touch and keys. */
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-ink-700/70 bg-ink-850 shadow-card; }
+  .panel { @apply bg-ink-900 border-ink-700/70; }
+  .label { @apply mb-1.5 block text-[13px] font-medium text-ink-200; }
+  .hint { @apply mt-1.5 text-xs text-ink-400; }
+  .input {
+    @apply h-10 w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 text-sm text-ink-100
+      placeholder:text-ink-500 transition-colors
+      hover:border-ink-600 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/25
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .input-error { @apply border-rose-500/70 focus:border-rose-500 focus:ring-rose-500/20; }
+  .section-title { @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400; }
+  .checker {
+    background-color: #1a1d25;
+    background-image: linear-gradient(45deg, #232733 25%, transparent 25%), linear-gradient(-45deg, #232733 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #232733 75%), linear-gradient(-45deg, transparent 75%, #232733 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+  }
+}
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.anim-toast { animation: toast-in 0.22s ease-out; }
+.anim-fade { animation: fade-in 0.18s ease-out; }
+.anim-pop { animation: pop-in 0.2s ease-out; }

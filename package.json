@@ -1,0 +1,27 @@
+{
+  "name": "interactive-story-platform",
+  "private": true,
+  "description": "Storyframe — admin dashboard, public client site, Electron viewer and Firebase-backed API",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix server run dev\" \"node scripts/dev-web.mjs\"",
+    "install:all": "npm --prefix server install && npm --prefix admin install && npm --prefix client install && npm --prefix desktop install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:server:fake": "node server/test/fake-server.js",
+    "dev:web": "node scripts/dev-web.mjs",
+    "dev:admin": "npm --prefix admin run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev:desktop": "npm --prefix desktop run dev",
+    "test": "cd shared && node --test test/*.test.js && cd ../server && node --test test/*.test.js",
+    "build:admin": "npm --prefix admin run build",
+    "build:client": "npm --prefix client run build",
+    "build:exe": "npm --prefix desktop run dist",
+    "build": "npm ci --prefix server --omit=dev && npm ci --prefix admin --include=dev && npm ci --prefix client --include=dev && npm run build:admin && npm run build:client",
+    "start": "npm --prefix server start"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

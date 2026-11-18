@@ -1,0 +1,189 @@
+/* Shared story renderer styles — used by the admin preview/editors and the desktop viewer. */
+
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+.sp-root { position: relative; width: 100%; background: #000; }
+
+/* No scrollbar while a story plays — the progress line at the bottom replaces it. */
+html.sp-playing { scrollbar-width: none; }
+html.sp-playing::-webkit-scrollbar { display: none; }
+
+.sp-stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  --u: 1px;
+  contain: layout paint;
+}
+/* While pinned, GSAP writes the stage's size in pixels. Keep it locked to the window
+   instead, so full screen / resizing never leaves a gap or crops the story. */
+.sp-root .sp-stage {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.sp-scene, .sp-intro, .sp-end {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.sp-scene { will-change: opacity, transform; }
+/* Soft shadow on the top edge of a scene sliding up over the previous one. */
+.sp-stage > .sp-scene { box-shadow: 0 -28px 56px rgba(0, 0, 0, 0.5); background: #000; }
+
+/* Soft, dimmed copy of the scene image filling any area the image itself leaves
+   uncovered (whole-image opening, "Show whole image" scenes), instead of black. */
+.sp-backdrop {
+  position: absolute;
+  inset: -8%;
+  background: #000 center / cover no-repeat;
+  filter: blur(48px) brightness(0.42) saturate(1.15);
+  transform: translateZ(0);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Image layer that receives motion blur (text stays sharp). */
+.sp-lens { position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 50%; }
+
+.sp-cam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.sp-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+.sp-full { opacity: 0; transition: opacity 0.45s ease; }
+.sp-full.is-loaded { opacity: 1; }
+
+.sp-texts { position: absolute; inset: 0; pointer-events: none; }
+.sp-text { transform-origin: 50% 50%; will-change: transform, opacity; }
+.sp-text-box { display: block; }
+
+.sp-intro { z-index: 5; will-change: opacity, transform; }
+.sp-intro-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sp-intro-overlay { position: absolute; inset: 0; }
+
+.sp-empty {
+  position: absolute; inset: auto 0 12% 0; text-align: center;
+  font: 500 15px/1.4 'Inter Variable', system-ui, sans-serif; color: rgba(255,255,255,.7);
+}
+
+.sp-hint {
+  /* Sized in design units like the intro footer above it, so the two never collide. */
+  position: absolute; left: 0; right: 0; bottom: calc(var(--u, 1px) * 40); z-index: 6;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.sp-hint > div {
+  display: flex; flex-direction: column; align-items: center; gap: calc(var(--u, 1px) * 10);
+  font: 500 max(10px, calc(var(--u, 1px) * 13))/1 'Inter Variable', system-ui, sans-serif; letter-spacing: .28em; text-transform: uppercase;
+  color: rgba(255,255,255,.75);
+}
+.sp-hint-line {
+  display: block; width: 1px; height: calc(var(--u, 1px) * 40); overflow: hidden; position: relative;
+  background: rgba(255,255,255,.18);
+}
+.sp-hint-line::after {
+  content: ''; position: absolute; left: 0; top: -100%; width: 100%; height: 100%;
+  background: #fff; animation: sp-hint 1.8s cubic-bezier(.65,0,.35,1) infinite;
+}
+@keyframes sp-hint { 0% { top: -100%; } 60%, 100% { top: 100%; } }
+
+.sp-end {
+  z-index: 7; display: grid; place-items: center;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,.88));
+  font-family: 'Inter Variable', system-ui, sans-serif;
+}
+.sp-end-inner { text-align: center; padding: 24px; max-width: 760px; }
+.sp-end-kicker { margin: 0 0 14px; font-size: 12px; letter-spacing: .32em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+.sp-end-title {
+  margin: 0 0 32px; font-family: 'Playfair Display Variable', Georgia, serif; font-weight: 500;
+  font-size: clamp(32px, 4.4vw, 64px); line-height: 1.08;
+}
+.sp-end-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.sp-btn {
+  appearance: none; cursor: pointer; border-radius: 999px; padding: 12px 22px;
+  font: 500 14px/1 'Inter Variable', system-ui, sans-serif; color: #fff;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22);
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.sp-btn:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); }
+.sp-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+.sp-btn-primary { background: #fff; color: #0b0b10; border-color: #fff; }
+.sp-btn-primary:hover { background: #e7e7ee; }
+
+.sp-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; z-index: 8; background: rgba(255,255,255,.08); }
+.sp-progress > i { display: block; height: 100%; background: rgba(255,255,255,.75); transform-origin: 0 50%; transform: scaleX(0); }
+
+.sp-loading {
+  position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 14px;
+  align-items: center; justify-content: center; background: #000; color: rgba(255,255,255,.6);
+  font: 500 12px/1 'Inter Variable', system-ui, sans-serif; letter-spacing: .2em;
+}
+.sp-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.15); border-top-color: #fff; animation: sp-spin 0.9s linear infinite;
+}
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+
+/* Static frame used by the editors */
+.sp-frame { position: relative; overflow: hidden; background: #000; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-hint-line::after { animation: none; }
+}
+
+/* Intro footer: share icons, then the museum logo and name (sized in design units). */
+.sp-footer {
+  position: absolute; left: 50%; bottom: calc(var(--u, 1px) * 150); z-index: 2;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  color: #fff; font-family: 'Inter Variable', system-ui, sans-serif; text-align: center;
+}
+.sp-footer.is-static { pointer-events: none; }
+.sp-social { display: flex; gap: calc(var(--u, 1px) * 10); }
+.sp-social-btn {
+  appearance: none; cursor: pointer; display: grid; place-items: center;
+  width: calc(var(--u, 1px) * 48); height: calc(var(--u, 1px) * 48);
+  border-radius: 999px; border: 0; background: transparent; color: rgba(255,255,255,.88);
+  transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+.sp-social-btn svg { width: calc(var(--u, 1px) * 24); height: calc(var(--u, 1px) * 24); }
+.sp-social-btn:hover { background: rgba(255,255,255,.14); color: #fff; }
+.sp-social-btn:active { transform: scale(.94); }
+.sp-social-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.sp-social-btn.is-on { color: #ff5a6e; }
+.sp-footer-note {
+  min-height: calc(var(--u, 1px) * 26); padding-top: calc(var(--u, 1px) * 6);
+  font-size: calc(var(--u, 1px) * 15); color: rgba(255,255,255,.8);
+}
+.sp-brand-logo { height: calc(var(--u, 1px) * 72); width: auto; user-select: none; filter: drop-shadow(0 2px 10px rgba(0,0,0,.45)); }
+.sp-brand-name {
+  margin-top: calc(var(--u, 1px) * 12);
+  font-size: calc(var(--u, 1px) * 19); font-weight: 600; letter-spacing: .01em;
+  text-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+
+.sp-intro .sp-footer:not(.is-static) { animation: sp-footer-in 0.9s 1.3s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes sp-footer-in { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .sp-intro .sp-footer { animation: none; } }
