@@ -52,10 +52,11 @@ export function createApp() {
     maxAge: '365d',
     index: false,
     dotfiles: 'deny',
-    // With STORAGE_DRIVER=firestore, anything not on disk is read from Firestore below.
-    fallthrough: env.storageDriver === 'firestore',
+    // Anything not on this server's disk is looked up in Firestore (STORAGE_DRIVER=firestore
+    // files), so images keep working on hosts without a disk whatever the driver setting.
+    fallthrough: true,
   }));
-  if (env.storageDriver === 'firestore') app.get('/uploads/*path', serveFirestoreFile);
+  app.get('/uploads/*path', serveFirestoreFile);
 
   app.use('/api/desktop', publicCors, desktopRoutes);
   app.use('/api', adminCors, express.json({ limit: '2mb' }));
