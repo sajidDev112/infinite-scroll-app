@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** Render "Secret Files" are mounted here; used automatically when present. */
 const RENDER_SECRET_FILE = '/etc/secrets/serviceAccount.json';
@@ -47,6 +49,26 @@ function serviceAccountJson() {
 }
 const sa = serviceAccountJson();
 
+/**
+ * The service-account file: FIREBASE_SERVICE_ACCOUNT_PATH if that file exists, otherwise a
+ * Render Secret File (/etc/secrets/…, also copied to the repository root), otherwise none.
+ * A configured path that doesn't exist is reported instead of crashing on ENOENT.
+ */
+function findServiceAccountFile() {
+  const configured = (process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '').trim();
+  const name = configured ? basename(configured) : 'serviceAccount.json';
+  const candidates = [
+    configured && resolve(process.cwd(), configured),
+    `/etc/secrets/${name}`,
+    RENDER_SECRET_FILE,
+    resolve(fileURLToPath(new URL('../../../', import.meta.url)), name), // repository root
+  ].filter(Boolean);
+  const found = candidates.find((p) => existsSync(p));
+  if (configured && !found) missingServiceAccount = configured;
+  return found || '';
+}
+let missingServiceAccount = '';
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   // API_PORT wins over a generic PORT that a shell or tool may set for something else;
@@ -62,7 +84,7 @@ export const env = {
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   firebase: {
     // Order: explicit path → Render secret file → FIREBASE_SERVICE_ACCOUNT_JSON → the three inline values.
-    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || (existsSync(RENDER_SECRET_FILE) ? RENDER_SECRET_FILE : ''),
+    serviceAccountPath: findServiceAccountFile(),
     projectId: (sa.projectId || process.env.FIREBASE_PROJECT_ID || '').trim().replace(/^["']|["']$/g, ''),
     clientEmail: (sa.clientEmail || process.env.FIREBASE_CLIENT_EMAIL || '').trim().replace(/^["']|["']$/g, ''),
     privateKey: normalizePrivateKey(sa.privateKey || process.env.FIREBASE_PRIVATE_KEY),
@@ -79,6 +101,10 @@ export function assertEnv() {
   const f = env.firebase;
   const hasInline = f.projectId && f.clientEmail && f.privateKey;
   if (!f.serviceAccountPath && !hasInline && !process.env.FIRESTORE_EMULATOR_HOST) {
+    if (missingServiceAccount) {
+      problems.push(`FIREBASE_SERVICE_ACCOUNT_PATH is "${missingServiceAccount}" but that file does not exist. `
+        + 'On Render, add a Secret File named serviceAccount.json (Environment → Secret Files) and remove FIREBASE_SERVICE_ACCOUNT_PATH.');
+    }
     problems.push('Set FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
   }
   if (!f.serviceAccountPath && f.privateKey && !/^-----BEGIN [A-Z ]*PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+\n-----END [A-Z ]*PRIVATE KEY-----\n$/.test(f.privateKey)) {
