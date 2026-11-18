@@ -1,0 +1,49 @@
+# Render Blueprint: one Web Service runs the API and serves both websites.
+#   https://<name>.onrender.com/admin/   admin dashboard
+#   https://<name>.onrender.com/client/  public client site
+#   https://<name>.onrender.com/api/     API (also used by the desktop app)
+# Render → New → Blueprint → pick this repository. Values marked sync: false are
+# asked for once in the Render dashboard (never commit them).
+services:
+  - type: web
+    name: infinite-scroll-app
+    runtime: node
+    plan: free # images need a paid plan + disk (below) or Firebase Storage to survive restarts
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      - key: JWT_REMEMBER_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGINS # your Render address, e.g. https://infinite-scroll-app.onrender.com
+        sync: false
+      - key: MAX_UPLOAD_MB
+        value: 15
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: ADMIN_NAME
+        value: Administrator
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STORAGE_DRIVER
+        value: local
+      # With the disk below, also add:  - key: UPLOADS_DIR / value: /var/data/uploads
+    # Uncomment with plan: starter (or higher) so uploaded images are kept across deploys:
+    # disk:
+    #   name: uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1
