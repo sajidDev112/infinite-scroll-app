@@ -1,10 +1,10 @@
 /**
- * Creates a dashboard admin in Firestore.
+ * Creates a dashboard admin in MongoDB.
  *   npm run create-admin -- --email you@example.com --password "s3cret-pass" --name "Your Name" [--role admin|editor]
  */
 import { parseArgs } from 'node:util';
 import { assertEnv } from '../src/config/env.js';
-import { initFirebase } from '../src/config/firebase.js';
+import { connectDb, disconnectDb } from '../src/config/db.js';
 import { createAdmin } from '../src/services/adminService.js';
 
 const { values } = parseArgs({
@@ -27,9 +27,10 @@ if (values.password.length < 8) {
 
 try {
   assertEnv();
-  initFirebase();
+  await connectDb();
   const admin = await createAdmin(values);
   console.log(`Created ${admin.role} ${admin.email} (id ${admin.id}).`);
+  await disconnectDb();
   process.exit(0);
 } catch (err) {
   console.error(`Could not create admin: ${err.message}`);

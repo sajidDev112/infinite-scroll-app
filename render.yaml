@@ -27,11 +27,7 @@ services:
         sync: false
       - key: MAX_UPLOAD_MB
         value: 15
-      - key: FIREBASE_PROJECT_ID
-        sync: false
-      - key: FIREBASE_CLIENT_EMAIL
-        sync: false
-      - key: FIREBASE_PRIVATE_KEY
+      - key: MONGODB_URI # MongoDB Atlas connection string, e.g. mongodb+srv://user:pass@cluster.mongodb.net/infinite_scroll_app
         sync: false
       - key: ADMIN_NAME
         value: Administrator
@@ -39,11 +35,4 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      - key: STORAGE_DRIVER
-        value: firestore # images kept in Firestore (no disk or Storage bucket needed)
-      # With the disk below, also add:  - key: UPLOADS_DIR / value: /var/data/uploads
-    # Uncomment with plan: starter (or higher) so uploaded images are kept across deploys:
-    # disk:
-    #   name: uploads
-    #   mountPath: /var/data
-    #   sizeGB: 1
+    # Images are stored in MongoDB (GridFS), so no disk is needed.

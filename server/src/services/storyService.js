@@ -1,17 +1,14 @@
-import { COLLECTIONS, getDb } from '../config/firebase.js';
+import { PublishedStory, Story } from '../models/index.js';
 import { ApiError } from '../utils/errors.js';
 import { now, plain } from '../utils/serialize.js';
 import { collectImageIds, createIntro } from '../../../shared/engine/defaults.js';
 import { validateForPublish } from '../../../shared/engine/validate.js';
 import { cleanupImages } from './imageService.js';
 
-const stories = () => getDb().collection(COLLECTIONS.stories);
-const published = () => getDb().collection(COLLECTIONS.published);
-
 const SUMMARY_FIELDS = [
   'title', 'description', 'category', 'coverImage', 'thumbnail', 'status', 'sceneCount',
   'imageCount', 'isPublished', 'publishedAt', 'hasUnpublishedChanges', 'createdAt', 'updatedAt',
-];
+].join(' ');
 
 /** Fields derived from content, recomputed on every write. */
 function derived(story) {
@@ -32,20 +29,18 @@ function derived(story) {
   };
 }
 
-async function getStoryDoc(id) {
-  const doc = await stories().doc(id).get();
-  if (!doc.exists) throw ApiError.notFound('Story not found.');
-  return doc;
+async function findStory(id) {
+  const story = await Story.findById(String(id)).lean();
+  if (!story) throw ApiError.notFound('Story not found.');
+  return story;
 }
 
 export async function getStory(id) {
-  const doc = await getStoryDoc(id);
-  return { id: doc.id, ...plain(doc.data()) };
+  return plain(await findStory(id));
 }
 
 export async function listStories({ page, limit, search, status, sort }) {
-  const snap = await stories().select(...SUMMARY_FIELDS).get();
-  const all = snap.docs.map((d) => ({ id: d.id, ...plain(d.data()) }));
+  const all = (await Story.find({}, SUMMARY_FIELDS).lean()).map(plain);
 
   const counts = { all: all.length, active: 0, inactive: 0, draft: 0 };
   all.forEach((s) => { counts[s.status] = (counts[s.status] || 0) + 1; });
@@ -82,7 +77,7 @@ export async function createStory(input, admin) {
     intro: input.intro || createIntro(),
     scenes: input.scenes || [],
   };
-  const data = {
+  const doc = await Story.create({
     ...base,
     ...derived(base),
     isPublished: false,
@@ -92,14 +87,12 @@ export async function createStory(input, admin) {
     updatedAt: ts,
     createdBy: admin.id,
     updatedBy: admin.id,
-  };
-  const ref = await stories().add(data);
-  return { id: ref.id, ...plain(data) };
+  });
+  return plain(doc.toObject());
 }
 
 export async function updateStory(id, patch, admin) {
-  const doc = await getStoryDoc(id);
-  const current = doc.data();
+  const current = await findStory(id);
   const next = { ...current, ...patch };
 
   if (patch.status && patch.status !== current.status) {
@@ -116,16 +109,14 @@ export async function updateStory(id, patch, admin) {
     updatedBy: admin.id,
   };
   const statusChanged = patch.status && patch.status !== current.status;
-  const batch = getDb().batch();
   if (statusChanged && patch.status === 'draft' && current.isPublished) {
     // Moving back to draft unpublishes the story.
     Object.assign(update, { isPublished: false, publishedAt: null, hasUnpublishedChanges: false });
-    batch.delete(published().doc(id));
+    await PublishedStory.deleteOne({ _id: current._id });
   } else if (statusChanged && current.isPublished) {
-    batch.update(published().doc(id), { status: patch.status });
+    await PublishedStory.updateOne({ _id: current._id }, { $set: { status: patch.status } });
   }
-  batch.update(doc.ref, update);
-  await batch.commit();
+  await Story.updateOne({ _id: current._id }, { $set: update });
 
   const removed = (current.imageIds || []).filter((x) => !d.imageIds.includes(x));
   if (removed.length) cleanupImages(removed);
@@ -143,8 +134,7 @@ export async function setStatus(id, status, admin) {
 }
 
 export async function publishStory(id, admin) {
-  const doc = await getStoryDoc(id);
-  const story = doc.data();
+  const story = await findStory(id);
   const errors = validateForPublish(story);
   if (errors.length) {
     throw ApiError.unprocessable('This story is not ready to publish.', errors);
@@ -152,7 +142,8 @@ export async function publishStory(id, admin) {
   const ts = now();
   const d = derived(story);
   const snapshot = {
-    storyId: id,
+    _id: story._id,
+    storyId: story._id,
     title: story.title,
     description: story.description || '',
     category: story.category || '',
@@ -167,34 +158,31 @@ export async function publishStory(id, admin) {
     updatedAt: ts,
     version: (story.publishedVersion || 0) + 1,
   };
-  const batch = getDb().batch();
-  batch.set(published().doc(id), snapshot);
-  batch.update(doc.ref, {
-    status: 'active',
-    isPublished: true,
-    publishedAt: ts,
-    publishedVersion: snapshot.version,
-    hasUnpublishedChanges: false,
-    updatedAt: ts,
-    updatedBy: admin.id,
+  await PublishedStory.replaceOne({ _id: story._id }, snapshot, { upsert: true });
+  await Story.updateOne({ _id: story._id }, {
+    $set: {
+      status: 'active',
+      isPublished: true,
+      publishedAt: ts,
+      publishedVersion: snapshot.version,
+      hasUnpublishedChanges: false,
+      updatedAt: ts,
+      updatedBy: admin.id,
+    },
   });
-  await batch.commit();
   return getStory(id);
 }
 
 export async function deleteStory(id) {
-  const doc = await getStoryDoc(id);
-  const pub = await published().doc(id).get();
-  const ids = [...(doc.data().imageIds || []), ...(pub.exists ? pub.data().imageIds || [] : [])];
-  const batch = getDb().batch();
-  batch.delete(doc.ref);
-  batch.delete(published().doc(id));
-  await batch.commit();
+  const story = await findStory(id);
+  const pub = await PublishedStory.findById(story._id, 'imageIds').lean();
+  const ids = [...(story.imageIds || []), ...(pub?.imageIds || [])];
+  await Promise.all([Story.deleteOne({ _id: story._id }), PublishedStory.deleteOne({ _id: story._id })]);
   await cleanupImages(ids);
 }
 
 export async function duplicateStory(id, admin) {
-  const source = (await getStoryDoc(id)).data();
+  const source = await findStory(id);
   return createStory({
     title: `${source.title} (Copy)`.slice(0, 160),
     description: source.description,
@@ -207,29 +195,23 @@ export async function duplicateStory(id, admin) {
 }
 
 export async function dashboardStats() {
-  const col = stories();
-  const count = async (q) => (await q.count().get()).data().count;
-  const [total, active, inactive, draft, publishedCount, recent] = await Promise.all([
-    count(col),
-    count(col.where('status', '==', 'active')),
-    count(col.where('status', '==', 'inactive')),
-    count(col.where('status', '==', 'draft')),
-    count(published().where('status', '==', 'active')),
-    col.orderBy('updatedAt', 'desc').limit(6).select(...SUMMARY_FIELDS).get(),
+  const [total, active, inactive, draft, live, recent] = await Promise.all([
+    Story.countDocuments(),
+    Story.countDocuments({ status: 'active' }),
+    Story.countDocuments({ status: 'inactive' }),
+    Story.countDocuments({ status: 'draft' }),
+    PublishedStory.countDocuments({ status: 'active' }),
+    Story.find({}, SUMMARY_FIELDS).sort({ updatedAt: -1 }).limit(6).lean(),
   ]);
   return {
-    totals: { total, active, inactive, draft, live: publishedCount },
-    recentStories: recent.docs.map((d) => ({ id: d.id, ...plain(d.data()) })),
+    totals: { total, active, inactive, draft, live },
+    recentStories: recent.map(plain),
   };
 }
 
-// ---- desktop (public, read-only) ---------------------------------------------------
+// ---- desktop / client (public, read-only) ------------------------------------------
 export async function listPublishedStories({ search, category }) {
-  const snap = await published()
-    .where('status', '==', 'active')
-    .select('title', 'description', 'category', 'coverImage', 'sceneCount', 'publishedAt')
-    .get();
-  const all = snap.docs.map((d) => ({ id: d.id, ...plain(d.data()) }));
+  const all = (await PublishedStory.find({ status: 'active' }, 'title description category coverImage sceneCount publishedAt').lean()).map(plain);
   const categories = [...new Set(all.map((s) => s.category).filter(Boolean))].sort();
   const q = search.toLowerCase();
   const items = all
@@ -240,8 +222,8 @@ export async function listPublishedStories({ search, category }) {
 }
 
 export async function getPublishedStory(id) {
-  const doc = await published().doc(id).get();
-  if (!doc.exists || doc.data().status !== 'active') throw ApiError.notFound('Story not found or not published.');
-  const { imageIds, titleLower, ...rest } = doc.data();
-  return { id: doc.id, ...plain(rest) };
+  const doc = await PublishedStory.findById(String(id)).lean();
+  if (!doc || doc.status !== 'active') throw ApiError.notFound('Story not found or not published.');
+  const { imageIds, titleLower, ...rest } = doc;
+  return plain(rest);
 }

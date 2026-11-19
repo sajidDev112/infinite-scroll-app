@@ -1,23 +1,31 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { randomBytes } from 'node:crypto';
 
-/** Converts Firestore Timestamps (recursively) into ISO strings for JSON responses. */
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+/**
+ * New document id: 20 random letters/digits, the same shape as the ids the data had
+ * before it moved to MongoDB, so old and new ids look alike in URLs.
+ */
+export function newId() {
+  const bytes = randomBytes(20);
+  let id = '';
+  for (const b of bytes) id += ALPHABET[b % ALPHABET.length];
+  return id;
+}
+
+export const now = () => new Date();
+
+/** Converts Dates (recursively) into ISO strings and Mongo's _id into id, for JSON responses. */
 export function plain(value) {
-  if (value instanceof Timestamp) return value.toDate().toISOString();
-  if (value && typeof value.toDate === 'function' && typeof value.seconds === 'number') {
-    return value.toDate().toISOString();
-  }
+  if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(plain);
   if (value && typeof value === 'object') {
     const out = {};
-    for (const [k, v] of Object.entries(value)) out[k] = plain(v);
+    for (const [k, v] of Object.entries(value)) {
+      if (k === '__v') continue;
+      out[k === '_id' ? 'id' : k] = plain(v);
+    }
     return out;
   }
   return value;
 }
-
-export function docToJson(doc) {
-  if (!doc?.exists) return null;
-  return { id: doc.id, ...plain(doc.data()) };
-}
-
-export const now = () => Timestamp.now();

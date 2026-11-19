@@ -12,9 +12,9 @@ import uploadRoutes from './routes/upload.routes.js';
 import desktopRoutes from './routes/desktop.routes.js';
 import { dashboardStats } from './services/storyService.js';
 import { countImages } from './services/imageService.js';
-import { UPLOADS_DIR } from './services/fileStorage.js';
+import { serveFile } from './services/fileStorage.js';
+import { dbReady } from './config/db.js';
 import { mountWebApps } from './web.js';
-import { serveFirestoreFile } from './services/firestoreFiles.js';
 
 export function createApp() {
   const app = express();
@@ -26,7 +26,7 @@ export function createApp() {
     // The admin and client sites are served from here in production (see web.js).
     contentSecurityPolicy: {
       directives: {
-        'img-src': ["'self'", 'data:', 'blob:', 'https:'], // upload previews, Firebase Storage images
+        'img-src': ["'self'", 'data:', 'blob:', 'https:'], // upload previews
         'media-src': ["'self'", 'data:', 'blob:', 'https:'],
         'font-src': ["'self'", 'data:', 'https:'],
         'connect-src': ["'self'", 'https:'],
@@ -44,19 +44,10 @@ export function createApp() {
   // Desktop API is public and read-only; Electron pages have a "null"/file origin.
   const publicCors = cors({ origin: true });
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+  app.get('/api/health', (_req, res) => res.status(dbReady() ? 200 : 503).json({ ok: dbReady(), db: dbReady() ? 'connected' : 'disconnected', time: new Date().toISOString() }));
 
-  // Uploaded images (STORAGE_DRIVER=local). File names are unique per image, so cache forever.
-  app.use('/uploads', cors({ origin: true }), express.static(UPLOADS_DIR, {
-    immutable: true,
-    maxAge: '365d',
-    index: false,
-    dotfiles: 'deny',
-    // Anything not on this server's disk is looked up in Firestore (STORAGE_DRIVER=firestore
-    // files), so images keep working on hosts without a disk whatever the driver setting.
-    fallthrough: true,
-  }));
-  app.get('/uploads/*path', serveFirestoreFile);
+  // Uploaded images, read from MongoDB GridFS. File names are unique per image, so cached forever.
+  app.get('/uploads/*path', cors({ origin: true }), serveFile);
 
   app.use('/api/desktop', publicCors, desktopRoutes);
   app.use('/api', adminCors, express.json({ limit: '2mb' }));

@@ -1,18 +1,16 @@
 import sharp from 'sharp';
-import { COLLECTIONS, getDb } from '../config/firebase.js';
+import { Image, PublishedStory, Story } from '../models/index.js';
 import { deleteFile, putFile } from './fileStorage.js';
 import { ApiError } from '../utils/errors.js';
-import { now, plain } from '../utils/serialize.js';
+import { newId, now, plain } from '../utils/serialize.js';
 
 const FULL_MAX = 3840; // enough detail for 3× zoom on a 1080p screen
 const THUMB_MAX = 640;
 const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 
-const imagesCol = () => getDb().collection(COLLECTIONS.images);
-
 /**
  * Validates an uploaded image by decoding it, normalises orientation, resizes,
- * re-encodes to WebP, stores full + thumbnail (server disk or Firebase Storage) and records it.
+ * re-encodes to WebP, stores full + thumbnail in GridFS and records it.
  */
 export async function processAndStoreImage(file, adminId) {
   let meta;
@@ -33,12 +31,13 @@ export async function processAndStoreImage(file, adminId) {
       .webp({ quality: 72 }).toBuffer({ resolveWithObject: true }),
   ]);
 
-  const ref = imagesCol().doc();
-  const fullPath = `story-images/${ref.id}/full.webp`;
-  const thumbPath = `story-images/${ref.id}/thumb.webp`;
+  const id = newId();
+  const fullPath = `story-images/${id}/full.webp`;
+  const thumbPath = `story-images/${id}/thumb.webp`;
   const [url, thumbUrl] = await Promise.all([putFile(fullPath, full.data), putFile(thumbPath, thumb.data)]);
 
-  const record = {
+  const doc = await Image.create({
+    _id: id,
     url,
     thumbUrl,
     fullPath,
@@ -51,34 +50,30 @@ export async function processAndStoreImage(file, adminId) {
     mimeType: 'image/webp',
     uploadedBy: adminId,
     createdAt: now(),
-  };
-  await ref.set(record);
-  return { id: ref.id, ...plain(record) };
+  });
+  return plain(doc.toObject());
 }
 
 /** True if any story (working copy or published snapshot) still uses the image. */
 export async function isImageReferenced(imageId) {
-  const db = getDb();
   const [a, b] = await Promise.all([
-    db.collection(COLLECTIONS.stories).where('imageIds', 'array-contains', imageId).limit(1).get(),
-    db.collection(COLLECTIONS.published).where('imageIds', 'array-contains', imageId).limit(1).get(),
+    Story.exists({ imageIds: imageId }),
+    PublishedStory.exists({ imageIds: imageId }),
   ]);
-  return !a.empty || !b.empty;
+  return Boolean(a || b);
 }
 
 async function removeImage(imageId) {
-  const doc = await imagesCol().doc(imageId).get();
-  if (!doc.exists) return false;
-  const { fullPath, thumbPath } = doc.data();
-  await Promise.all([fullPath, thumbPath].map((p) => deleteFile(p)));
-  await doc.ref.delete();
+  const image = await Image.findById(imageId).lean();
+  if (!image) return false;
+  await Promise.all([image.fullPath, image.thumbPath].map((p) => deleteFile(p)));
+  await Image.deleteOne({ _id: imageId });
   return true;
 }
 
 /** DELETE /api/uploads/:id — refuses if a story still uses the image. */
 export async function deleteImage(imageId) {
-  const doc = await imagesCol().doc(imageId).get();
-  if (!doc.exists) throw ApiError.notFound('Image not found.');
+  if (!(await Image.exists({ _id: imageId }))) throw ApiError.notFound('Image not found.');
   if (await isImageReferenced(imageId)) {
     throw ApiError.conflict('This image is still used by a story. Remove it from the story and save first.');
   }
@@ -100,6 +95,5 @@ export async function cleanupImages(imageIds = []) {
 }
 
 export async function countImages() {
-  const snap = await imagesCol().count().get();
-  return snap.data().count;
+  return Image.countDocuments();
 }

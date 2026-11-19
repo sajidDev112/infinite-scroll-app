@@ -5,9 +5,9 @@
 ```
 ┌──────────────────────┐        REST (JWT)        ┌──────────────────────────┐
 │ admin/  (React+Vite) │ ───────────────────────▶ │ server/ (Express)        │
-│ Dashboard, Builder,  │                          │  firebase-admin SDK      │
-│ Live Preview         │                          │   ├─ Firestore (data)    │
-└──────────┬───────────┘                          │   └─ Storage (images)    │
+│ Dashboard, Builder,  │                          │  Mongoose → MongoDB      │
+│ Live Preview         │                          │   ├─ collections (data)  │
+└──────────┬───────────┘                          │   └─ GridFS (images)     │
            │ imports                              └────────────▲─────────────┘
 ┌──────────▼───────────┐                                       │ REST (public,
 │ shared/              │  ◀── same engine ──┐                  │ read-only)
@@ -17,9 +17,9 @@
                                                    └─────────────────────────┘
 ```
 
-* **server/** is the only component that holds Firebase service-account credentials
-  and the JWT secret. Neither front end ever talks to Firebase directly
-  (images are fetched from Firebase Storage download URLs, which carry their own token).
+* **server/** is the only component that talks to MongoDB and holds the JWT secret.
+  Front ends only use the REST API; images are served by the server at `/uploads/...`
+  from GridFS.
 * **shared/** holds the animation engine. `shared/engine` is framework-free math
   (camera/focal-point zoom, text reveal, easing, validation, defaults) that the server
   also imports for publish validation. `shared/react` holds `StoryPlayer` and the scene/text
@@ -38,7 +38,8 @@ Infinite_Scroll_App/
 │  └─ test/        node --test unit tests for the engine
 ├─ server/
 │  ├─ src/
-│  │  ├─ config/       env, firebase
+│  │  ├─ config/       env, db (MongoDB connection)
+│  │  ├─ models/       Mongoose models: Admin, Story, PublishedStory, Image
 │  │  ├─ middleware/   auth, roles, error handler, validation, upload
 │  │  ├─ routes/       auth, stories, uploads, desktop, dashboard
 │  │  ├─ services/     admin, story, image, storage
@@ -52,12 +53,15 @@ Infinite_Scroll_App/
    └─ src/       pages/Home, pages/Viewer, components
 ```
 
-## 3. Firestore data model
+## 3. MongoDB data model
 
-Firestore is document-based, so a story's scenes, steps and text elements are embedded
-in the story document (one atomic write per save, one read per story view).
-A story with 30 scenes × 6 steps × 3 text elements is roughly 300 KB, well within the 1 MB
-document limit.
+Collections (`server/src/models/index.js`): `admins`, `stories`, `publishedStories`, `images`,
+plus the GridFS bucket `images` (`images.files` / `images.chunks`) for the WebP files.
+Ids are 20-character strings (kept from the earlier Firestore data), so URLs stay stable.
+
+A story's scenes, steps and text elements are embedded in the story document (one write
+per save, one read per story view). A story with 30 scenes × 6 steps × 3 text elements is
+roughly 300 KB, well within MongoDB's 16 MB document limit.
 
 | Collection | Document | Purpose |
 |---|---|---|
@@ -144,8 +148,8 @@ Uploads are validated by MIME type, size, and by actually decoding them with `sh
 (rejects spoofed files). Each upload is auto-rotated, resized to a 3840 px long edge
 (enough for 3× zoom on 1080p screens), re-encoded as WebP, and gets a 640 px thumbnail.
 
-Story listing: Firestore has no full-text search, so the server reads lightweight summaries
-(`select()` without scenes) and filters, sorts and paginates in memory. This is fine up to
+Story listing: the server reads lightweight summaries (a projection without scenes) and
+filters, sorts and paginates in memory. This is fine up to
 several thousand stories; beyond that, add Algolia/Typesense.
 
 ## 5. Main screens

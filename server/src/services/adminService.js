@@ -1,12 +1,12 @@
 import bcrypt from 'bcryptjs';
-import { COLLECTIONS, getDb } from '../config/firebase.js';
+import { Admin } from '../models/index.js';
 import { ApiError } from '../utils/errors.js';
 import { now, plain } from '../utils/serialize.js';
 
 const ROUNDS = 12;
 export const ROLES = ['admin', 'editor'];
 
-const col = () => getDb().collection(COLLECTIONS.admins);
+const toAdmin = (doc) => (doc ? plain(doc) : null);
 
 /** Public shape — never includes the password hash. */
 export function publicAdmin(admin) {
@@ -17,15 +17,11 @@ export function publicAdmin(admin) {
 
 export async function findAdminById(id) {
   if (!id) return null;
-  const doc = await col().doc(String(id)).get();
-  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+  return toAdmin(await Admin.findById(String(id)).lean());
 }
 
 export async function findAdminByEmail(email) {
-  const snap = await col().where('email', '==', String(email).toLowerCase()).limit(1).get();
-  if (snap.empty) return null;
-  const doc = snap.docs[0];
-  return { id: doc.id, ...doc.data() };
+  return toAdmin(await Admin.findOne({ email: String(email).trim().toLowerCase() }).lean());
 }
 
 export async function createAdmin({ name, email, password, role = 'admin' }) {
@@ -33,7 +29,7 @@ export async function createAdmin({ name, email, password, role = 'admin' }) {
   const normalized = String(email).trim().toLowerCase();
   if (await findAdminByEmail(normalized)) throw ApiError.conflict('An admin with this email already exists.');
   const ts = now();
-  const data = {
+  const doc = await Admin.create({
     name: String(name).trim(),
     email: normalized,
     passwordHash: await bcrypt.hash(password, ROUNDS),
@@ -41,9 +37,8 @@ export async function createAdmin({ name, email, password, role = 'admin' }) {
     createdAt: ts,
     updatedAt: ts,
     lastLoginAt: null,
-  };
-  const ref = await col().add(data);
-  return { id: ref.id, ...data };
+  });
+  return toAdmin(doc.toObject());
 }
 
 /**
@@ -67,12 +62,12 @@ export async function verifyCredentials(email, password) {
   const admin = await findAdminByEmail(email);
   const ok = await bcrypt.compare(password, admin?.passwordHash || DUMMY_HASH);
   if (!admin || !ok) return null;
-  await col().doc(admin.id).update({ lastLoginAt: now() });
+  await Admin.updateOne({ _id: admin.id }, { $set: { lastLoginAt: now() } });
   return admin;
 }
 
 export async function updateProfile(id, { name }) {
-  await col().doc(id).update({ name, updatedAt: now() });
+  await Admin.updateOne({ _id: id }, { $set: { name, updatedAt: now() } });
   return findAdminById(id);
 }
 
@@ -81,5 +76,5 @@ export async function changePassword(id, currentPassword, newPassword) {
   if (!admin) throw ApiError.notFound('Admin not found.');
   const ok = await bcrypt.compare(currentPassword, admin.passwordHash);
   if (!ok) throw ApiError.badRequest('Current password is incorrect.', [{ path: 'currentPassword', message: 'Current password is incorrect.' }]);
-  await col().doc(id).update({ passwordHash: await bcrypt.hash(newPassword, ROUNDS), updatedAt: now() });
+  await Admin.updateOne({ _id: id }, { $set: { passwordHash: await bcrypt.hash(newPassword, ROUNDS), updatedAt: now() } });
 }

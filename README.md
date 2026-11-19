@@ -4,32 +4,40 @@ Four apps that share one animation engine:
 
 | Folder | What it is | Dev URL |
 |---|---|---|
-| `server/` | Express REST API on Firebase (Firestore + Storage via the Admin SDK), JWT + bcrypt auth | http://localhost:4000/api |
+| `server/` | Express REST API on MongoDB (Mongoose models, image files in GridFS), JWT + bcrypt auth | http://localhost:4000/api |
 | `admin/` | React dashboard and Story Builder (Vite, Tailwind, Konva, GSAP) | http://localhost:5173/admin/ |
 | `client/` | Public website: active stories as cards → scroll story experience | http://localhost:5173/client/stories |
 | `desktop/` | Electron viewer (list stories → scroll-driven story) | Electron window |
 | `shared/` | Animation engine (pure math) + `StoryPlayer`, used by admin preview, client site **and** desktop | — |
 
-The architecture, Firestore data model and animation math are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The architecture, data model and animation math are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## 1. Firebase setup (once)
+## 1. MongoDB (once)
 
-1. In the [Firebase console](https://console.firebase.google.com), open your project.
-2. **Firestore Database** → create a database (production mode).
-3. **Storage** → get started (requires the Blaze plan for new projects). Note the bucket name, e.g. `my-project.firebasestorage.app`.
-4. **Project settings → Service accounts → Generate new private key.** Save it as `server/serviceAccount.json` (git-ignored).
-5. Deploy the deny-all rules (the API is the only Firebase client):
-   ```bash
-   firebase deploy --only firestore:rules,storage --project <your-project-id>
-   ```
-   No composite indexes are needed.
+Install [MongoDB Community Server](https://www.mongodb.com/try/download/community) and keep it
+running (on Windows it runs as the `MongoDB` service on `127.0.0.1:27017`). The server creates
+the database `infinite_scroll_app`, its collections and indexes on first start:
+
+| Collection | Model (`server/src/models`) | Holds |
+|---|---|---|
+| `admins` | `Admin` | dashboard users (bcrypt password hashes) |
+| `stories` | `Story` | the working copy of each story (intro, scenes, steps, text) |
+| `publishedStories` | `PublishedStory` | the snapshot visitors see, written by Publish |
+| `images` | `Image` | uploaded image records |
+| `images.files` / `images.chunks` | GridFS | the WebP files, served at `/uploads/...` |
+
+**Old Firebase data** (one time, already done for this project): this copies the Firestore
+collections (same ids) and the image files into MongoDB. Safe to run again.
+```bash
+npm --prefix server run import-from-firebase -- --key ./serviceAccount.json
+```
 
 ## 2. Server
 
 ```bash
 cd server
 npm install
-cp .env.example .env        # then fill in JWT_SECRET, FIREBASE_STORAGE_BUCKET, service account path
+cp .env.example .env        # then fill in JWT_SECRET (MONGODB_URI defaults to the local MongoDB)
 npm run create-admin -- --email you@example.com --password "a-strong-password" --name "Your Name"
 npm run dev
 ```
@@ -84,27 +92,19 @@ One Web Service runs the API and also serves the built admin and client sites
 
 1. Render → **New → Blueprint** → choose this GitHub repository. It reads `render.yaml`
    (build: `npm run build`, start: `npm start`, health check: `/api/health`).
-2. Fill in the values it asks for: `CORS_ORIGINS` (your `https://<name>.onrender.com`),
-   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (paste with the
-   `\n` line breaks, as in `.env`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`. `JWT_SECRET` is generated.
-   **Most reliable for Firebase:** Render → Environment → **Secret Files** → add a file named
-   `serviceAccount.json` with the service-account JSON (`server/serviceAccount.json` locally, never in Git).
-   It is used automatically, and the FIREBASE_* variables are then not needed.
-   Another alternative: add one variable `FIREBASE_SERVICE_ACCOUNT_JSON` and paste the
-   whole downloaded service-account JSON file into it (then the three FIREBASE_* values aren't needed).
-   The key is accepted with or without quotes, with `\n` or real line breaks.
-3. **Images:** the free plan wipes files on every deploy/restart. Either use a paid plan with
-   the disk in `render.yaml` (+ `UPLOADS_DIR=/var/data/uploads`), or `STORAGE_DRIVER=firebase`
-   with `FIREBASE_STORAGE_BUCKET`. Images in your local `server/uploads` are not in Git —
-   upload them again on the live site.
+2. Render can't reach the MongoDB on your PC. Create a free **MongoDB Atlas** cluster
+   (cloud.mongodb.com), allow access from anywhere (`0.0.0.0/0`), and copy its connection
+   string. Copy your local data there once with `mongodump` / `mongorestore` or MongoDB Compass.
+3. Fill in the values Render asks for: `MONGODB_URI` (the Atlas string, ending in
+   `/infinite_scroll_app`), `CORS_ORIGINS` (your `https://<name>.onrender.com`), `ADMIN_EMAIL`,
+   `ADMIN_PASSWORD`. `JWT_SECRET` is generated. Images live in MongoDB (GridFS), so nothing
+   is lost when Render restarts.
 4. Desktop app: set `apiUrl` to `https://<name>.onrender.com/api` (see above).
 
 ## Tests
 
 ```bash
-npm test                       # engine math (11) + API suite (10)
-node server/test/fake-server.js   # API on an in-memory Firestore/Storage stand-in, for UI testing
-                                   # without credentials (admin@example.com / password123, data not persisted)
+npm test                       # engine math + API suite (uses a temporary database on the local MongoDB)
 cd desktop && npm run build && npx electron scripts/smoke-test.cjs ./smoke-out   # Electron smoke test (API must be running)
 ```
 

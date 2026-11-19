@@ -9,8 +9,7 @@
     "start": "node --env-file-if-exists=.env src/index.js",
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
     "test": "node --test test/*.test.js",
-    "migrate-uploads": "node --env-file-if-exists=.env scripts/migrate-uploads.js",
-    "upload-to-firestore": "node --env-file-if-exists=.env scripts/upload-to-firestore.js"
+    "import-from-firebase": "node --env-file-if-exists=.env scripts/import-from-firebase.js"
   },
   "engines": {
     "node": ">=20.12"
@@ -21,12 +20,15 @@
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.4",
-    "firebase-admin": "^14.5.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.24.10",
     "morgan": "^1.12.1",
     "multer": "^2.5.0",
     "sharp": "^0.35.5",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "firebase-admin": "^14.5.1"
   }
 }

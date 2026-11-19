@@ -1,66 +1,111 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve, sep } from 'node:path';
-import { env } from '../config/env.js';
-import { getBucket } from '../config/firebase.js';
-import { deleteFirestoreFile, putFirestoreFile } from './firestoreFiles.js';
+import mongoose from 'mongoose';
 
 /**
- * Where image files live. STORAGE_DRIVER=local (default) keeps them in server/uploads
- * and serves them at /uploads/...; STORAGE_DRIVER=firebase uses Firebase Storage.
+ * Image files live in MongoDB GridFS (bucket "images": collections images.files / images.chunks),
+ * keyed by their path, e.g. "story-images/<id>/full.webp". This server serves them at
+ * /uploads/<path>, so stored links are relative and work on any host.
  */
-export const UPLOADS_DIR = resolve(env.uploadsDir);
 export const LOCAL_PREFIX = '/uploads/';
+const BUCKET = 'images';
+const CACHE_LIMIT = Number(process.env.FILE_CACHE_MB || 48) * 1024 * 1024; // fits a 512 MB host
+const MAX_PARALLEL_READS = Number(process.env.FILE_READS_PARALLEL || 4);
 
-function localPath(path) {
-  const full = resolve(UPLOADS_DIR, path);
-  if (!full.startsWith(UPLOADS_DIR + sep)) throw new Error('Invalid storage path.');
-  return full;
+let bucket = null;
+function gridfs() {
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('MongoDB is not connected.');
+  if (!bucket || bucket.s?.db !== db) bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: BUCKET });
+  return bucket;
 }
 
-/** Firebase download URL (works for both the real service and the Storage emulator). */
-export function downloadUrl(bucketName, path, token) {
-  const emu = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
-  const base = emu ? `http://${emu.replace(/^https?:\/\//, '')}` : 'https://firebasestorage.googleapis.com';
-  return `${base}/v0/b/${bucketName}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
-}
+const filesCol = () => mongoose.connection.db.collection(`${BUCKET}.files`);
 
-/** Stores a WebP file and returns the URL clients load it from. */
-export async function putFile(path, buffer) {
-  if (env.storageDriver === 'firestore') {
-    await putFirestoreFile(path, buffer, 'image/webp');
-    return LOCAL_PREFIX + path; // same /uploads/ links as local files
-  }
-  if (env.storageDriver === 'local') {
-    const full = localPath(path);
-    await mkdir(dirname(full), { recursive: true });
-    await writeFile(full, buffer);
-    // Relative URL: browsers resolve it against the dashboard; desktop responses are made absolute.
-    return LOCAL_PREFIX + path.split(sep).join('/');
-  }
-  const bucket = getBucket();
-  const token = randomUUID();
-  await bucket.file(path).save(buffer, {
-    resumable: false,
-    contentType: 'image/webp',
-    metadata: {
-      cacheControl: 'public, max-age=31536000, immutable',
-      metadata: { firebaseStorageDownloadTokens: token },
-    },
+/** Stores a file (replacing an older one with the same path) and returns its URL. */
+export async function putFile(path, buffer, contentType = 'image/webp') {
+  await deleteFile(path);
+  await new Promise((resolve, reject) => {
+    const up = gridfs().openUploadStream(path, { metadata: { contentType } });
+    up.once('finish', resolve).once('error', reject);
+    up.end(buffer);
   });
-  return downloadUrl(bucket.name, path, token);
+  return LOCAL_PREFIX + path;
 }
 
 export async function deleteFile(path) {
   if (!path) return;
-  if (env.storageDriver === 'firestore') return deleteFirestoreFile(path);
-  if (env.storageDriver === 'local') {
-    await rm(localPath(path), { force: true });
-    // Remove the now-empty per-image folder.
-    await rm(dirname(localPath(path)), { recursive: false, force: true }).catch(() => {});
-    return;
+  const files = await filesCol().find({ filename: path }, { projection: { _id: 1 } }).toArray();
+  await Promise.all(files.map((f) => gridfs().delete(f._id).catch(() => {})));
+  cache.delete(path);
+}
+
+// ---- reading: small LRU cache + a cap on parallel reads --------------------------------
+const cache = new Map();
+let cacheBytes = 0;
+function remember(path, file) {
+  if (file.data.length > CACHE_LIMIT / 4) return;
+  cache.set(path, file);
+  cacheBytes += file.data.length;
+  for (const [k, v] of cache) {
+    if (cacheBytes <= CACHE_LIMIT) break;
+    cache.delete(k);
+    cacheBytes -= v.data.length;
   }
-  await getBucket().file(path).delete({ ignoreNotFound: true });
+}
+
+const inFlight = new Map();
+let active = 0;
+const waiting = [];
+async function limited(fn) {
+  if (active >= MAX_PARALLEL_READS) await new Promise((r) => waiting.push(r));
+  active++;
+  try { return await fn(); } finally {
+    active--;
+    waiting.shift()?.();
+  }
+}
+
+async function readFile(path) {
+  const info = await filesCol().find({ filename: path }).sort({ uploadDate: -1 }).limit(1).next();
+  if (!info) return null;
+  const parts = [];
+  await new Promise((resolve, reject) => {
+    gridfs().openDownloadStream(info._id)
+      .on('data', (c) => parts.push(c)).once('end', resolve).once('error', reject);
+  });
+  const file = {
+    data: Buffer.concat(parts),
+    contentType: info.metadata?.contentType || 'application/octet-stream',
+    etag: `"${info._id}"`,
+  };
+  remember(path, file);
+  return file;
+}
+
+export async function getFile(path) {
+  const hit = cache.get(path);
+  if (hit) {
+    cache.delete(path); // most recently used goes to the end
+    cache.set(path, hit);
+    return hit;
+  }
+  if (!inFlight.has(path)) inFlight.set(path, limited(() => readFile(path)).finally(() => inFlight.delete(path)));
+  return inFlight.get(path);
+}
+
+/** Express handler for GET /uploads/*path. */
+export async function serveFile(req, res, next) {
+  try {
+    const path = [].concat(req.params.path || []).join('/');
+    if (!path || path.split('/').some((p) => p === '..' || p === '.')) return res.status(404).end();
+    const file = await getFile(path);
+    if (!file) return res.status(404).json({ error: { message: 'File not found.' } });
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('ETag', file.etag);
+    if (req.headers['if-none-match'] === file.etag) return res.status(304).end();
+    res.type(file.contentType).send(file.data);
+  } catch (err) {
+    next(err);
+  }
 }
 
 /** Turns stored relative /uploads/ URLs into absolute ones for clients on another origin. */

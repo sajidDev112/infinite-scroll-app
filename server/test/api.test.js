@@ -1,16 +1,16 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { createFakeBucket, createFakeDb } from './fakeFirebase.js';
 
 process.env.JWT_SECRET = 'test-secret-that-is-definitely-longer-than-32-chars';
 process.env.NODE_ENV = 'test';
-process.env.STORAGE_DRIVER = 'firebase';
-
-const { __setFirebase } = await import('../src/config/firebase.js');
-const db = createFakeDb();
-const bucket = createFakeBucket();
-__setFirebase({ db, bucket });
+// A throw-away database on the local MongoDB, dropped when the suite ends.
+const DB_NAME = `story_platform_test_${process.pid}`;
+const mongoose = (await import('mongoose')).default;
+const { connectDb, disconnectDb } = await import('../src/config/db.js');
+const MONGO = (process.env.MONGODB_TEST_URI || 'mongodb://127.0.0.1:27017').replace(/\/$/, '');
+await connectDb(`${MONGO}/${DB_NAME}`);
+const storedFiles = () => mongoose.connection.db.collection('images.files').countDocuments();
 const { createApp } = await import('../src/app.js');
 const { createAdmin } = await import('../src/services/adminService.js');
 const { createScene, createTextElement } = await import('../../shared/engine/defaults.js');
@@ -44,7 +44,11 @@ before(async () => {
   await createAdmin({ name: 'Ada', email: 'Ada@Example.com', password: 'correct-horse', role: 'admin' });
   await createAdmin({ name: 'Ed', email: 'ed@example.com', password: 'editor-pass', role: 'editor' });
 });
-after(() => server.close());
+after(async () => {
+  server.close();
+  await mongoose.connection.db.dropDatabase();
+  await disconnectDb();
+});
 
 test('health check', async () => {
   const r = await api('GET', '/api/health', { auth: null });
@@ -76,8 +80,12 @@ test('image upload: resized, re-encoded, stored with thumbnail', async () => {
   [img] = r.body.images;
   assert.equal(img.width, 3840);
   assert.equal(img.height, 1920);
-  assert.match(img.url, /firebasestorage\.googleapis\.com\/v0\/b\/test-bucket\/o\/story-images%2F.+full\.webp\?alt=media&token=/);
-  assert.equal(bucket.files.size, 2);
+  assert.match(img.url, /^\/uploads\/story-images\/[A-Za-z0-9]{20}\/full\.webp$/);
+  assert.equal(await storedFiles(), 2);
+  const file = await fetch(base + img.url);
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.get('content-type'), 'image/webp');
+  assert.equal((await fetch(base + '/uploads/story-images/nope/full.webp')).status, 404);
 });
 
 test('image upload rejects spoofed and disallowed files', async () => {
@@ -155,11 +163,11 @@ test('image refcounting across duplicate and delete', async () => {
 
   assert.equal((await api('DELETE', `/api/stories/${storyId}`, { auth: editorToken })).status, 403);
   assert.equal((await api('DELETE', `/api/stories/${storyId}`)).status, 204);
-  assert.equal(bucket.files.size, 2, 'duplicate still uses the image');
+  assert.equal(await storedFiles(), 2, 'duplicate still uses the image');
   assert.equal((await api('GET', `/api/desktop/stories/${storyId}`, { auth: null })).status, 404);
 
   assert.equal((await api('DELETE', `/api/stories/${dup.body.story.id}`)).status, 204);
-  assert.equal(bucket.files.size, 0, 'orphaned image removed from storage');
+  assert.equal(await storedFiles(), 0, 'orphaned image removed from storage');
 });
 
 test('unknown routes and bad ids', async () => {

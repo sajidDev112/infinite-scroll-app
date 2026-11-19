@@ -1,12 +1,11 @@
 {
   "name": "interactive-story-platform",
   "private": true,
-  "description": "Storyframe — admin dashboard, public client site, Electron viewer and Firebase-backed API",
+  "description": "Storyframe — admin dashboard, public client site, Electron viewer and MongoDB-backed API",
   "scripts": {
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix server run dev\" \"node scripts/dev-web.mjs\"",
     "install:all": "npm --prefix server install && npm --prefix admin install && npm --prefix client install && npm --prefix desktop install",
     "dev:server": "npm --prefix server run dev",
-    "dev:server:fake": "node server/test/fake-server.js",
     "dev:web": "node scripts/dev-web.mjs",
     "dev:admin": "npm --prefix admin run dev",
     "dev:client": "npm --prefix client run dev",
