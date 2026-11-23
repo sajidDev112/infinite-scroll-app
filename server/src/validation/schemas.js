@@ -83,7 +83,7 @@ export const sceneSchema = z.object({
   imageHeight: z.number().int().positive(),
   order: z.number().int().min(0),
   title: z.string().max(200).optional().default(''),
-  scrollLength: num(1, 8).optional(),
+  scrollLength: num(1, 12).optional(),
   fit: z.enum(['cover', 'contain']).optional(),
   openWithFullImage: z.boolean().optional(),
   transition: z

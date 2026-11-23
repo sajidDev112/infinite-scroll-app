@@ -174,8 +174,10 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
     };
     syncImages(0);
 
-    // Smooth scrolling, synchronised with ScrollTrigger through the GSAP ticker.
-    const lenis = new Lenis({ lerp: 0.085, smoothWheel: true, wheelMultiplier: 0.9, touchMultiplier: 1.4 });
+    // Smooth scrolling, synchronised with ScrollTrigger through the GSAP ticker. A low lerp
+    // gives a long, soft glide after each wheel move; the multipliers keep one wheel notch or
+    // swipe from covering too much of the story, so zooms unfold slowly.
+    const lenis = new Lenis({ lerp: 0.06, smoothWheel: true, wheelMultiplier: 0.7, touchMultiplier: 1.1 });
     lenisRef.current = lenis;
     lenis.on('scroll', ScrollTrigger.update);
     const tick = (time) => lenis.raf(time * 1000);
@@ -200,7 +202,9 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
           pin: stage,
           start: 'top top',
           end: () => `+=${layout.total * window.innerHeight}`,
-          scrub: true,
+          // The camera catches up with the scroll over ~0.6 s, smoothing out uneven
+          // wheels and trackpads instead of following every tick exactly.
+          scrub: 0.6,
           invalidateOnRefresh: true,
           onUpdate: (self) => {
             if (barRef.current) barRef.current.style.transform = `scaleX(${self.progress})`;

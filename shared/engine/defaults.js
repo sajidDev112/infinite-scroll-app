@@ -57,7 +57,8 @@ export function createStep(overrides = {}) {
     progress: 0,
     zoomLevel: 1,
     focalPoint: { x: 0.5, y: 0.5, targetPositionX: 0.5, targetPositionY: 0.5 },
-    transitionSettings: { easing: 'power2.inOut', duration: 1, blur: 0 },
+    // Sine in-out: the gentlest start and stop, so slow zooms glide instead of lurching.
+    transitionSettings: { easing: 'sine.inOut', duration: 1, blur: 0 },
     textElements: [],
     ...overrides,
   };

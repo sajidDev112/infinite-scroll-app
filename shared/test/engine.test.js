@@ -104,7 +104,7 @@ test('layout totals and scene ordering', () => {
   const layout = buildLayout([createScene(img), createScene(img)]);
   const kinds = layout.segments.map((s) => s.type);
   assert.deepEqual(kinds, ['intro', 'scene', 'transition', 'scene', 'end']);
-  near(layout.total, 0.8 + (1.2 + 3) + 1 + (1.2 + 3) + 0.8); // each scene opens on its whole image; slide-over transition, 1 screen
+  near(layout.total, 0.8 + (2 + 5) + 1 + (2 + 5) + 0.8); // new scenes: 5 vh of steps + a 2 vh opening (1.2 × 5/3); slide-over transition, 1 screen
 });
 
 test('stage unit follows the tighter screen dimension', async () => {
@@ -132,7 +132,7 @@ test('slide-over intro takes exactly one screen of scroll', () => {
   const layout = buildLayout([createScene(img)], 'slideOver');
   assert.equal(layout.segments[0].kind, 'slideOver');
   near(layout.segments[0].length, 1);
-  near(layout.total, 1 + 1.2 + 3 + 0.8);
+  near(layout.total, 1 + 2 + 5 + 0.8);
 });
 
 test('publish validation', () => {
@@ -161,4 +161,15 @@ test('scene opening: whole image first, then zooms into step 1', () => {
   const img = { id: 'a', url: 'u', width: 10, height: 10 };
   const scene = { ...createScene(img), openWithFullImage: false };
   near(buildLayout([scene]).segments[1].opening, 0);
+});
+
+test('zoom speed: scroll length sets the pace, the opening scales with it', async () => {
+  const { sceneLengths } = await import('../engine/layout.js');
+  const steps = [{ progress: 0 }, { progress: 1 }];
+  assert.deepEqual(sceneLengths({ scrollLength: 3, animationSteps: steps }), { steps: 3, opening: 1.2 }); // older scenes unchanged
+  near(sceneLengths({ scrollLength: 5, animationSteps: steps }).opening, 2); // 1.2 × 5/3
+  near(sceneLengths({ scrollLength: 12, animationSteps: steps }).opening, 3); // capped at 2.5×
+  near(sceneLengths({ animationSteps: steps }).steps, 3); // no value → reference speed
+  near(sceneLengths({ scrollLength: 50, animationSteps: steps }).steps, 12); // clamped
+  near(sceneLengths({ scrollLength: 8, openWithFullImage: false, animationSteps: steps }).opening, 0);
 });

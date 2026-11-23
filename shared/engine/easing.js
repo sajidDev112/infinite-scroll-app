@@ -43,7 +43,7 @@ export const EASINGS = [
   { value: 'power1.inOut', label: 'Gentle in-out' },
   { value: 'power2.inOut', label: 'Smooth in-out' },
   { value: 'power3.inOut', label: 'Strong in-out' },
-  { value: 'sine.inOut', label: 'Sine in-out' },
+  { value: 'sine.inOut', label: 'Silky in-out (smoothest)' },
   { value: 'expo.out', label: 'Expo out' },
   { value: 'expo.inOut', label: 'Expo in-out' },
   { value: 'circ.out', label: 'Circular out' },

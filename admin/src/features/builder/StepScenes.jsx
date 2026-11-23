@@ -3,8 +3,10 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AlertCircle, Copy, Crosshair, GripVertical, Monitor, Plus, Trash2 } from 'lucide-react';
-import { OPENING_LENGTH, stageUnit } from '@shared/engine/constants.js';
-import { hasOpening, sortSteps } from '@shared/engine/camera.js';
+import { stageUnit } from '@shared/engine/constants.js';
+import { sceneLengths } from '@shared/engine/layout.js';
+import { sortSteps } from '@shared/engine/camera.js';
+import { useToast } from '../../context/ToastContext.jsx';
 import { cloneScene, collectImageIds, createStep, createTextElement, uid } from '@shared/engine/defaults.js';
 import { SceneFrame } from '@shared/react/SceneFrame.jsx';
 import { TextElementView } from '@shared/react/TextElementView.jsx';
@@ -78,6 +80,7 @@ function MiniPreview({ scene, step, aspect, focalOverride }) {
 }
 
 export default function StepScenes({ story, update, aspect, setAspect, issues }) {
+  const toast = useToast();
   const scenes = story.scenes;
   const [sceneId, setSceneId] = useState(scenes[0]?.sceneId);
   const scene = scenes.find((s) => s.sceneId === sceneId) || scenes[0];
@@ -107,9 +110,10 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
   // Scene playback (scrubs the preview playhead).
   useEffect(() => {
     if (!playing || !scene) return undefined;
-    const duration = (scene.scrollLength ?? 3) * 1600;
+    const { steps: stepsLength, opening } = sceneLengths(scene);
+    const duration = stepsLength * 1600;
     // Playing from the start includes the opening (whole image → step 1), as -1…0.
-    const lead = hasOpening(scene) ? (OPENING_LENGTH * 1600) / duration : 0;
+    const lead = opening ? (opening * 1600) / duration : 0;
     const from = preview == null || preview >= 1 ? -lead : preview;
     const t0 = performance.now() - from * duration;
     const tick = (now) => {
@@ -139,6 +143,10 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
     );
   }
 
+  const applySpeedToAll = scenes.length > 1 ? (len) => {
+    update((d) => { d.scenes.forEach((s) => { s.scrollLength = len; }); });
+    toast.success(`Zoom speed applied to all ${scenes.length} scenes.`);
+  } : undefined;
   const updScene = (fn) => update((d) => { const s = d.scenes.find((x) => x.sceneId === scene.sceneId); if (s) fn(s); });
   const updStep = (fn) => updScene((s) => { const st = s.animationSteps.find((x) => x.stepId === step.stepId); if (st) fn(st); });
   const updTexts = (fn) => updStep((st) => fn(st.textElements));
@@ -363,6 +371,9 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
               onAddText={addText}
               selectedTextId={textId}
               onSelectText={(id) => { setTextId(id); setTab('text'); setView('stage'); stopPreview(); }}
+              scene={scene}
+              onSceneChange={(patch) => updScene((s) => Object.assign(s, patch))}
+              onApplySpeedToAll={applySpeedToAll}
             />
           )}
           {tab === 'text' && text && (
@@ -377,7 +388,13 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
             />
           )}
           {tab === 'scene' && (
-            <SceneSettings scene={scene} index={sceneIndex} isLast={sceneIndex === scenes.length - 1} onChange={(patch) => updScene((s) => Object.assign(s, patch))} />
+            <SceneSettings
+              scene={scene}
+              index={sceneIndex}
+              isLast={sceneIndex === scenes.length - 1}
+              onChange={(patch) => updScene((s) => Object.assign(s, patch))}
+              onApplyToAll={applySpeedToAll}
+            />
           )}
         </div>
       </aside>

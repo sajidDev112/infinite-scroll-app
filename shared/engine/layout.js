@@ -1,6 +1,6 @@
 import {
-  DEFAULT_SCROLL_LENGTH,
   END_CARD_LENGTH,
+  REFERENCE_SCROLL_LENGTH,
   INTRO_EXIT_LENGTH,
   INTRO_SLIDE_LENGTH,
   OPENING_LENGTH,
@@ -9,6 +9,17 @@ import {
 } from './constants.js';
 import { clamp } from './easing.js';
 import { hasOpening } from './camera.js';
+
+/**
+ * A scene's scroll lengths (viewport heights): `steps` is its scroll length (the zoom speed
+ * set in the builder); `opening` is the whole-image shot before step 1, which slows down and
+ * speeds up together with the steps (1.2 at the reference length of 3).
+ */
+export function sceneLengths(scene) {
+  const steps = clamp(Number(scene?.scrollLength) || REFERENCE_SCROLL_LENGTH, SCROLL_LENGTH_MIN, SCROLL_LENGTH_MAX);
+  const opening = hasOpening(scene) ? OPENING_LENGTH * clamp(steps / REFERENCE_SCROLL_LENGTH, 0.75, 2.5) : 0;
+  return { steps, opening };
+}
 
 /**
  * Lays the whole story out on one scroll axis, in viewport heights:
@@ -23,8 +34,7 @@ export function buildLayout(scenes = [], introExit = 'fade') {
   t += introLength;
   scenes.forEach((scene, i) => {
     // `opening` (inside `length`) is the whole-image shot before step 1; steps play after it.
-    const stepsLength = clamp(Number(scene.scrollLength) || DEFAULT_SCROLL_LENGTH, SCROLL_LENGTH_MIN, SCROLL_LENGTH_MAX);
-    const opening = hasOpening(scene) ? OPENING_LENGTH : 0;
+    const { steps: stepsLength, opening } = sceneLengths(scene);
     const length = opening + stepsLength;
     segments.push({ type: 'scene', index: i, start: t, length, opening });
     t += length;

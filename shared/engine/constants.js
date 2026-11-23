@@ -16,17 +16,28 @@ export const ZOOM_MIN = 1;
 export const ZOOM_MAX = 3;
 export const ZOOM_PRESETS = [1, 1.5, 2, 2.5, 3];
 
+/** A scene's scroll length (viewport heights) sets its zoom speed: longer = slower, smoother. */
 export const SCROLL_LENGTH_MIN = 1;
-export const SCROLL_LENGTH_MAX = 8;
-export const DEFAULT_SCROLL_LENGTH = 3;
+export const SCROLL_LENGTH_MAX = 12;
+/** For new scenes. (Older scenes without a value fall back to REFERENCE_SCROLL_LENGTH.) */
+export const DEFAULT_SCROLL_LENGTH = 5;
+export const REFERENCE_SCROLL_LENGTH = 3;
+/** Quick picks in the builder (viewport heights of scrolling for the scene's steps). */
+export const ZOOM_SPEED_PRESETS = [
+  { value: 2, label: 'Fast' },
+  { value: 3, label: 'Normal' },
+  { value: 5, label: 'Slow' },
+  { value: 8, label: 'Very slow' },
+];
 
 /** Viewport heights used by the fixed parts of the story timeline. */
 export const INTRO_EXIT_LENGTH = 0.8;
 /** Slide-over moves exactly one screen per screen of scrolling, like a normal page. */
 export const INTRO_SLIDE_LENGTH = 1;
 export const END_CARD_LENGTH = 0.8;
-/** Scroll (viewport heights) before a scene's first step: the whole image is shown, then
- *  the camera zooms into step 1. Scenes can turn it off with openWithFullImage: false. */
+/** Scroll (viewport heights) before a scene's first step at the reference speed: the whole
+ *  image is shown, then the camera zooms into step 1. It scales with the scene's speed
+ *  (see sceneLengths). Scenes can turn it off with openWithFullImage: false. */
 export const OPENING_LENGTH = 1.2;
 /** Share of the opening spent resting on the whole image before the zoom starts. */
 export const OPENING_HOLD = 0.3;

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Copy, Crosshair, Plus, Trash2, Type } from 'lucide-react';
-import { TRANSITION_TYPES, ZOOM_PRESETS } from '@shared/engine/constants.js';
+import { REFERENCE_SCROLL_LENGTH, SCROLL_LENGTH_MAX, SCROLL_LENGTH_MIN, TRANSITION_TYPES, ZOOM_PRESETS, ZOOM_SPEED_PRESETS } from '@shared/engine/constants.js';
 import { EASINGS } from '@shared/engine/easing.js';
 import { Button } from '../../components/ui/Button.jsx';
 import { Field, Input, NumberInput, RangeField, Segmented, Select } from '../../components/ui/Fields.jsx';
@@ -19,7 +19,62 @@ function Block({ title, children, right }) {
   );
 }
 
-export function StepInspector({ step, index, count, onChange, onMove, onDuplicate, onDelete, onAddText, onSelectText, selectedTextId }) {
+// ---- Zoom speed ---------------------------------------------------------------------
+// Stored as the scene's scrollLength (screen-heights of scrolling, 1–12: more = slower).
+// The slider shows it the intuitive way round, Slow ← → Fast, on a log scale so each
+// step of the slider changes the speed by the same proportion.
+const SPEED_RATIO = Math.log(SCROLL_LENGTH_MAX / SCROLL_LENGTH_MIN);
+const lengthToSpeed = (len) => Math.round((Math.log(SCROLL_LENGTH_MAX / len) / SPEED_RATIO) * 100);
+const speedToLength = (v) => Math.round(SCROLL_LENGTH_MAX * Math.exp(-SPEED_RATIO * (v / 100)) * 20) / 20;
+const speedName = (len) => (len >= 7 ? 'Very slow' : len >= 4 ? 'Slow' : len >= 2.5 ? 'Normal' : len >= 1.6 ? 'Fast' : 'Very fast');
+
+export function ZoomSpeedControl({ scene, onChange, onApplyToAll, compact = false }) {
+  const len = Number(scene.scrollLength) || REFERENCE_SCROLL_LENGTH;
+  const speed = lengthToSpeed(len);
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+          <span className="text-[13px] font-medium text-ink-200">Zoom speed</span>
+          <span className="text-[13px] font-semibold text-accent-300 tabular-nums">{speedName(len)} · {speed}%</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-ink-400">Slow</span>
+          <input
+            type="range"
+            className="h-1.5 min-w-0 flex-1 cursor-pointer"
+            min={0}
+            max={100}
+            step={1}
+            value={speed}
+            onChange={(e) => onChange({ scrollLength: speedToLength(Number(e.target.value)) })}
+            aria-label="Zoom speed"
+            aria-valuetext={`${speedName(len)}, ${speed}%`}
+          />
+          <span className="text-[11px] text-ink-400">Fast</span>
+        </div>
+        <p className="hint">
+          Drag left for a slower, smoother zoom. This scene's zooms are spread over {Number(len.toFixed(2))} screen{len === 1 ? '' : 's'} of scrolling.
+        </p>
+      </div>
+      {!compact && (
+        <Segmented
+          className="w-full"
+          value={ZOOM_SPEED_PRESETS.find((p) => p.value === len)?.value}
+          onChange={(v) => onChange({ scrollLength: v })}
+          options={ZOOM_SPEED_PRESETS}
+        />
+      )}
+      {onApplyToAll && (
+        <Button size="sm" variant="secondary" className="w-full" onClick={() => onApplyToAll(len)}>
+          Use this speed for all scenes
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function StepInspector({ step, index, count, onChange, onMove, onDuplicate, onDelete, onAddText, onSelectText, selectedTextId, scene, onSceneChange, onApplySpeedToAll }) {
   const fp = step.focalPoint;
   const ts = step.transitionSettings || {};
   const setFocal = (patch) => onChange({ focalPoint: { ...fp, ...patch } });
@@ -34,6 +89,12 @@ export function StepInspector({ step, index, count, onChange, onMove, onDuplicat
           <Button size="icon-sm" variant="danger-ghost" disabled={count <= 1} onClick={onDelete} title="Delete step" aria-label="Delete step"><Trash2 className="size-4" /></Button>
         </div>
       </div>
+
+      {scene && onSceneChange && (
+        <Block title="Zoom speed (this scene)">
+          <ZoomSpeedControl scene={scene} onChange={onSceneChange} onApplyToAll={onApplySpeedToAll} compact />
+        </Block>
+      )}
 
       <Block title="Scroll position">
         <RangeField label="Scroll progress" value={step.progress} min={0} max={1} step={0.01} scale={100} suffix="%" hint="How far through this scene's scroll the step is reached." onChange={(v) => onChange({ progress: v })} />
@@ -140,7 +201,7 @@ export function StepInspector({ step, index, count, onChange, onMove, onDuplicat
   );
 }
 
-export function SceneSettings({ scene, index, isLast, onChange }) {
+export function SceneSettings({ scene, index, isLast, onChange, onApplyToAll }) {
   const tr = scene.transition || { type: 'crossfade', duration: 0.8 };
   return (
     <div>
@@ -153,8 +214,10 @@ export function SceneSettings({ scene, index, isLast, onChange }) {
           <dt>Aspect</dt><dd className="text-right text-ink-200 tabular-nums">{(scene.imageWidth / scene.imageHeight).toFixed(2)}</dd>
         </dl>
       </Block>
-      <Block title="Scroll">
-        <RangeField label="Scene length" value={scene.scrollLength ?? 3} min={1} max={8} step={0.25} suffix="vh" hint="How many screen-heights of scrolling this scene stays pinned for." onChange={(v) => onChange({ scrollLength: v })} />
+      <Block title="Zoom speed">
+        <ZoomSpeedControl scene={scene} onChange={onChange} onApplyToAll={onApplyToAll} />
+      </Block>
+      <Block title="Framing">
         <div>
           <span className="label">Image fit</span>
           <Segmented className="w-full" value={scene.fit || 'cover'} onChange={(v) => onChange({ fit: v })} options={[{ value: 'cover', label: 'Fill screen' }, { value: 'contain', label: 'Show whole image' }]} />
