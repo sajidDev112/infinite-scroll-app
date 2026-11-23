@@ -4,8 +4,8 @@ import { newId } from '../utils/serialize.js';
 const { Schema, model } = mongoose;
 const Mixed = Schema.Types.Mixed;
 
-// Ids are strings (not ObjectIds): the data came from Firestore with string ids that are
-// already in URLs, story image references and the desktop app's cache.
+// Ids are 20-character strings (not ObjectIds); existing ids are already in URLs,
+// story image references and the desktop app's cache, so they must stay strings.
 const idField = { type: String, default: newId };
 const options = (collection) => ({ collection, versionKey: false, minimize: false });
 

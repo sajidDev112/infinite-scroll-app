@@ -57,7 +57,7 @@ Infinite_Scroll_App/
 
 Collections (`server/src/models/index.js`): `admins`, `stories`, `publishedStories`, `images`,
 plus the GridFS bucket `images` (`images.files` / `images.chunks`) for the WebP files.
-Ids are 20-character strings (kept from the earlier Firestore data), so URLs stay stable.
+Ids are 20-character random strings (not ObjectIds), so story and image URLs stay short and stable.
 
 A story's scenes, steps and text elements are embedded in the story document (one write
 per save, one read per story view). A story with 30 scenes × 6 steps × 3 text elements is

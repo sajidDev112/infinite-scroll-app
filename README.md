@@ -26,12 +26,6 @@ the database `infinite_scroll_app`, its collections and indexes on first start:
 | `images` | `Image` | uploaded image records |
 | `images.files` / `images.chunks` | GridFS | the WebP files, served at `/uploads/...` |
 
-**Old Firebase data** (one time, already done for this project): this copies the Firestore
-collections (same ids) and the image files into MongoDB. Safe to run again.
-```bash
-npm --prefix server run import-from-firebase -- --key ./serviceAccount.json
-```
-
 ## 2. Server
 
 ```bash

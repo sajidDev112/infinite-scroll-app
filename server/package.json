@@ -8,8 +8,7 @@
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
     "start": "node --env-file-if-exists=.env src/index.js",
     "create-admin": "node --env-file-if-exists=.env scripts/create-admin.js",
-    "test": "node --test test/*.test.js",
-    "import-from-firebase": "node --env-file-if-exists=.env scripts/import-from-firebase.js"
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=20.12"
@@ -27,8 +26,5 @@
     "multer": "^2.5.0",
     "sharp": "^0.35.5",
     "zod": "^4.6.7"
-  },
-  "devDependencies": {
-    "firebase-admin": "^14.5.1"
   }
 }

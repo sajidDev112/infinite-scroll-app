@@ -3,7 +3,5 @@ dist/
 release/
 .env
 *.log
-serviceAccount*.json
-.firebase/
 smoke-out/
 server/uploads/
