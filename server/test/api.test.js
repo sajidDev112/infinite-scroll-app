@@ -175,3 +175,90 @@ test('unknown routes and bad ids', async () => {
   assert.equal((await api('GET', '/api/stories/bad$id')).status, 400);
   assert.equal((await api('GET', '/api/stories/doesnotexist')).status, 404);
 });
+
+test('intro footer settings: defaults, admin-only save, link validation, public read', async () => {
+  const def = await api('GET', '/api/settings/footer');
+  assert.equal(def.status, 200);
+  assert.deepEqual(def.body.footer.buttons.map((b) => b.type), ['like', 'copyLink', 'facebook', 'x', 'share']);
+  assert.equal(def.body.footer.logo, null);
+
+  const footer = {
+    brandName: 'My Museum',
+    showBrandName: true,
+    showLogo: true,
+    logo: { imageId: null, url: '/uploads/story-images/abc/full.webp' },
+    buttons: [
+      { type: 'instagram', enabled: true, mode: 'link', url: 'https://www.instagram.com/my.museum' },
+      { type: 'facebook', enabled: true, mode: 'share', url: '' },
+    ],
+  };
+  assert.equal((await api('PUT', '/api/settings/footer', { auth: editorToken, body: footer })).status, 403);
+  const bad = await api('PUT', '/api/settings/footer', { body: { ...footer, buttons: [{ type: 'instagram', enabled: true, mode: 'link', url: 'not a link' }] } });
+  assert.equal(bad.status, 422);
+  assert.equal((await api('PUT', '/api/settings/footer', { body: { ...footer, buttons: [{ type: 'tiktok', enabled: true, mode: 'link', url: '' }] } })).status, 400);
+
+  const ok = await api('PUT', '/api/settings/footer', { body: footer });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.footer.brandName, 'My Museum');
+
+  const pub = await api('GET', '/api/desktop/settings', { auth: null });
+  assert.equal(pub.status, 200);
+  assert.equal(pub.body.footer.buttons[0].url, 'https://www.instagram.com/my.museum');
+  assert.match(pub.body.footer.logo.url, /^http:\/\/127\.0\.0\.1:\d+\/uploads\//, 'logo link made absolute for other apps');
+
+  const reset = await api('DELETE', '/api/settings/footer');
+  assert.equal(reset.body.footer.brandName, 'Museum of Art & Photography');
+});
+
+test('uploaded fonts: admin-only upload, file checks, replace a weight, usage count, delete', async () => {
+  const fontFile = (tag) => Buffer.concat([Buffer.from(tag, 'latin1'), Buffer.alloc(64, 1)]);
+  const send = (family, files, variants, auth = token) => {
+    const form = new FormData();
+    form.append('family', family);
+    form.append('variants', JSON.stringify(variants));
+    files.forEach(([buf, name]) => form.append('files', new Blob([buf]), name));
+    return api('POST', '/api/fonts', { form, auth });
+  };
+  const before = await storedFiles();
+
+  assert.equal((await send('Geometria', [[fontFile('wOF2'), 'Geometria.woff2']], [{ weight: 400, style: 'normal' }], editorToken)).status, 403);
+  assert.equal((await send('Geometria', [[Buffer.from('<html>hi</html>'), 'Geometria.woff2']], [{ weight: 400, style: 'normal' }])).status, 400, 'content is checked, not just the name');
+  assert.equal((await send('Geometria', [[fontFile('wOF2'), 'evil.exe']], [{ weight: 400, style: 'normal' }])).status, 400);
+  assert.equal((await send('Inter', [[fontFile('wOF2'), 'a.woff2']], [{ weight: 400, style: 'normal' }])).status, 409, 'built-in name');
+  assert.equal((await send('Bad"name', [[fontFile('wOF2'), 'a.woff2']], [{ weight: 400, style: 'normal' }])).status, 400);
+  assert.equal((await send('Geometria', [[fontFile('wOF2'), 'a.woff2'], [fontFile('wOFF'), 'b.woff']], [{ weight: 400, style: 'normal' }, { weight: 400, style: 'normal' }])).status, 400, 'same weight twice');
+
+  const up = await send('Geometria', [[fontFile('wOF2'), 'Geometria-Regular.woff2'], [fontFile('\0\x01\0\0'), 'Geometria-BoldItalic.ttf']], [{ weight: 400, style: 'normal' }, { weight: 700, style: 'italic' }]);
+  assert.equal(up.status, 201, JSON.stringify(up.body));
+  const font = up.body.font;
+  assert.deepEqual(font.files.map((f) => [f.key, f.format]), [['400-normal', 'woff2'], ['700-italic', 'ttf']]);
+  assert.equal(font.files[0].path, undefined, 'storage path stays private');
+  const file = await fetch(base + font.files[0].url);
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.get('content-type'), 'font/woff2');
+  assert.equal(await storedFiles(), before + 2);
+
+  // Same weight again replaces the old file; the name matches case-insensitively.
+  const again = await send('geometria', [[fontFile('wOFF'), 'Geometria-Regular.woff']], [{ weight: 400, style: 'normal' }]);
+  assert.equal(again.status, 201);
+  assert.equal(again.body.font.id, font.id);
+  assert.equal(again.body.font.files.find((f) => f.key === '400-normal').format, 'woff');
+  assert.equal(await storedFiles(), before + 2, 'replaced file removed');
+
+  // Usage: a story using the font is counted.
+  const story = await api('POST', '/api/stories', { body: { title: 'Fonts', intro: { textElements: [createTextElement({ content: 'Hi', fontFamily: 'Geometria' })] } } });
+  assert.equal(story.status, 201, JSON.stringify(story.body));
+  const list = await api('GET', '/api/fonts', { auth: editorToken });
+  assert.equal(list.status, 200);
+  assert.equal(list.body.fonts[0].usedBy, 1);
+
+  const pub = await api('GET', '/api/desktop/fonts', { auth: null });
+  assert.match(pub.body.fonts[0].files[0].url, /^http:\/\/127\.0\.0\.1:\d+\/uploads\/fonts\//);
+
+  assert.equal((await api('DELETE', `/api/fonts/${font.id}/files/700-italic`)).body.font.files.length, 1);
+  assert.equal((await api('DELETE', `/api/fonts/${font.id}`, { auth: editorToken })).status, 403);
+  assert.equal((await api('DELETE', `/api/fonts/${font.id}`)).status, 204);
+  assert.equal((await api('GET', '/api/fonts')).body.fonts.length, 0);
+  assert.equal(await storedFiles(), before, 'font files removed');
+  await api('DELETE', `/api/stories/${story.body.story.id}`);
+});

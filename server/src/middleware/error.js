@@ -14,7 +14,7 @@ export function errorHandler(err, req, res, _next) {
 
   if (err instanceof multer.MulterError) {
     status = 400;
-    message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large.' : `Upload error: ${err.message}`;
+    message = err.code === 'LIMIT_FILE_SIZE' ? (req.originalUrl.startsWith('/api/fonts') ? 'Font file is too large (10 MB max).' : 'Image is too large.') : `Upload error: ${err.message}`;
   } else if (err.type === 'entity.too.large') {
     status = 413;
     message = 'Request body is too large.';

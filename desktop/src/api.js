@@ -46,6 +46,7 @@ async function request(path, { signal } = {}) {
 // Small in-memory cache so going back to the list is instant; refresh bypasses it.
 let listCache = null;
 const storyCache = new Map();
+let footerCache = null;
 
 export const api = {
   cachedList: () => listCache,
@@ -71,4 +72,22 @@ export const api = {
     }).catch(() => {});
   },
   clearStoryCache: () => storyCache.clear(),
+  /** Fonts uploaded in admin Settings (for story text); [] if they cannot load. */
+  async getFonts() {
+    try {
+      return (await request('/desktop/fonts')).fonts || [];
+    } catch {
+      return []; // text falls back to the built-in fonts
+    }
+  },
+  /** Intro footer (share buttons, logo, name) from admin Settings; null if it cannot load. */
+  async getFooter({ signal } = {}) {
+    if (footerCache) return footerCache;
+    try {
+      footerCache = (await request('/desktop/settings', { signal })).footer;
+    } catch {
+      return null; // the player falls back to the built-in footer
+    }
+    return footerCache;
+  },
 };

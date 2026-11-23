@@ -7,8 +7,8 @@ mongoose.set('strictQuery', true);
 export async function connectDb(uri = env.mongoUri) {
   if (mongoose.connection.readyState === 1) return mongoose.connection;
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
-  const { Admin, Story, PublishedStory, Image } = await import('../models/index.js');
-  await Promise.all([Admin, Story, PublishedStory, Image].map((m) => m.syncIndexes()));
+  const { Admin, Story, PublishedStory, Image, Setting, Font } = await import('../models/index.js');
+  await Promise.all([Admin, Story, PublishedStory, Image, Setting, Font].map((m) => m.syncIndexes()));
   return mongoose.connection;
 }
 

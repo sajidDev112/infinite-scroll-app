@@ -7,10 +7,12 @@ import { Field, Input, RangeField, Select, Toggle } from '../components/ui/Field
 import { PageHeader } from '../components/ui/Misc.jsx';
 import { loadPrefs, savePrefs } from '../lib/utils.js';
 import { STAGE_ASPECTS } from '@shared/engine/constants.js';
+import FooterSettings from '../features/settings/FooterSettings.jsx';
+import FontSettings from '../features/settings/FontSettings.jsx';
 
-function Section({ title, description, children }) {
+function Section({ id, title, description, children, className }) {
   return (
-    <section className="card flex flex-col gap-6 p-6">
+    <section id={id} className={`card flex scroll-mt-6 flex-col gap-6 p-6 ${className || ''}`}>
       <div className="border-b border-ink-700/60 pb-4">
         <h2 className="text-[15px] font-semibold text-white">{title}</h2>
         <p className="mt-1 text-sm text-ink-400">{description}</p>
@@ -74,9 +76,26 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Your account and editor preferences." />
+      <PageHeader title="Settings" description="Your account, editor preferences, the story footer and fonts." />
       {/* Two cards per row on wide screens, one per row on narrow ones. */}
       <div className="grid gap-6 lg:grid-cols-2">
+        <Section
+          className="lg:col-span-2"
+          title="Story intro footer"
+          description="The share and social buttons, logo and name at the bottom of every story's first screen."
+        >
+          <FooterSettings canEdit={admin?.role === 'admin'} />
+        </Section>
+
+        <Section
+          id="fonts"
+          className="lg:col-span-2"
+          title="Fonts"
+          description="Upload your own fonts (e.g. Geometria). They appear in the story builder's Typography list and load on the client site and desktop app."
+        >
+          <FontSettings canEdit={admin?.role === 'admin'} />
+        </Section>
+
         <Section title="Profile" description="How your name appears in the dashboard.">
           <form onSubmit={saveName} className="space-y-5">
             <Field label="Name" htmlFor="name"><Input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>

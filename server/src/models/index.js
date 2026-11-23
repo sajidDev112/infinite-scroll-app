@@ -84,7 +84,44 @@ const imageSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 }, options('images'));
 
-export const Admin = mongoose.models.Admin || model('Admin', adminSchema);
+/** Site-wide settings; one document per key (e.g. _id 'footer' = the intro footer). */
+const settingSchema = new Schema({
+  _id: { type: String, required: true },
+  value: { type: Mixed, default: null },
+  updatedAt: { type: Date, default: Date.now },
+  updatedBy: { type: String, default: null },
+}, options('settings'));
+
+/**
+ * A font uploaded in Settings → Fonts: one family, one file per weight/style.
+ * The files live in GridFS (bucket "images") under fonts/<id>/…
+ */
+const fontSchema = new Schema({
+  _id: idField,
+  family: { type: String, required: true, trim: true, maxlength: 60 },
+  familyLower: { type: String, required: true, unique: true },
+  files: {
+    type: [{
+      _id: false,
+      key: { type: String, required: true }, // "700-italic"
+      weight: { type: Number, required: true },
+      style: { type: String, enum: ['normal', 'italic'], default: 'normal' },
+      format: { type: String, required: true }, // woff2 | woff | ttf | otf
+      path: { type: String, required: true },
+      url: { type: String, required: true },
+      size: Number,
+      originalName: String,
+    }],
+    default: [],
+  },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  createdBy: { type: String, default: null },
+}, options('fonts'));
+
+export const Admin =mongoose.models.Admin || model('Admin', adminSchema);
 export const Story = mongoose.models.Story || model('Story', storySchema);
 export const PublishedStory = mongoose.models.PublishedStory || model('PublishedStory', publishedStorySchema);
 export const Image = mongoose.models.Image || model('Image', imageSchema);
+export const Setting = mongoose.models.Setting || model('Setting', settingSchema);
+export const Font = mongoose.models.Font || model('Font', fontSchema);

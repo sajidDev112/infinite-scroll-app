@@ -173,3 +173,31 @@ test('zoom speed: scroll length sets the pace, the opening scales with it', asyn
   near(sceneLengths({ scrollLength: 50, animationSteps: steps }).steps, 12); // clamped
   near(sceneLengths({ scrollLength: 8, openWithFullImage: false, animationSteps: steps }).opening, 0);
 });
+
+test('uploaded fonts: file name guesses, format sniffing, dropdown and story usage', async () => {
+  const { guessFontVariant, sniffFontFormat, fontFamilyOptions, storyFontUses, isBuiltInFontName } = await import('../engine/fonts.js');
+  assert.deepEqual(guessFontVariant('Geometria-BoldItalic.woff2'), { weight: 700, style: 'italic', family: 'Geometria' });
+  assert.deepEqual(guessFontVariant('Geometria-ExtraLight.otf'), { weight: 200, style: 'normal', family: 'Geometria' });
+  assert.equal(guessFontVariant('Geometria-SemiBold.ttf').weight, 600);
+  assert.equal(guessFontVariant('Geometria-Heavy.ttf').weight, 900);
+  assert.equal(guessFontVariant('Geometria-ExtraBoldItalic.ttf').weight, 800);
+  assert.equal(guessFontVariant('MyFont_500.woff').weight, 500);
+  assert.equal(guessFontVariant('Geometria.woff2').weight, 400);
+  assert.equal(guessFontVariant('BrandonGrotesque-Medium.woff2').family, 'Brandon Grotesque');
+
+  assert.equal(sniffFontFormat(Buffer.from('wOF2xxxx')), 'woff2');
+  assert.equal(sniffFontFormat(Buffer.from('wOFFxxxx')), 'woff');
+  assert.equal(sniffFontFormat(Buffer.from('OTTOxxxx')), 'otf');
+  assert.equal(sniffFontFormat(Buffer.from([0, 1, 0, 0, 9])), 'ttf');
+  assert.equal(sniffFontFormat(Buffer.from('<svg>')), null);
+
+  assert.ok(isBuiltInFontName('inter') && isBuiltInFontName('Bebas Neue') && !isBuiltInFontName('Geometria'));
+  const opts = fontFamilyOptions([{ family: 'Zeta', files: [{}] }, { family: 'Geometria', files: [{}] }, { family: 'Empty', files: [] }]);
+  assert.deepEqual(opts.slice(-2).map((o) => o.value), ['Geometria', 'Zeta']);
+
+  const uses = storyFontUses({
+    intro: { textElements: [{ fontFamily: 'Geometria', fontWeight: 700 }] },
+    scenes: [{ animationSteps: [{ textElements: [{ fontFamily: 'Geometria', fontWeight: 700 }, { fontFamily: 'Lora Variable', fontStyle: 'italic' }] }] }],
+  });
+  assert.deepEqual(uses, [{ family: 'Geometria', weight: 700, style: 'normal' }, { family: 'Lora Variable', weight: 600, style: 'italic' }]);
+});

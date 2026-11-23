@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowDownToLine, ArrowUpToLine, ChevronDown, Copy, Italic, Trash2, Underline,
 } from 'lucide-react';
-import { ANIMATION_TYPES, FONT_FAMILIES, FONT_WEIGHTS } from '@shared/engine/constants.js';
+import { Link } from 'react-router';
+import { ANIMATION_TYPES, FONT_WEIGHTS } from '@shared/engine/constants.js';
+import { fontFamilyOptions } from '@shared/engine/fonts.js';
+import { useCustomFonts } from '../../hooks/useCustomFonts.js';
 import { EASINGS } from '@shared/engine/easing.js';
 import { ColorField, NumberInput, RangeField, Segmented, Select, Textarea, Toggle } from '../../components/ui/Fields.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -49,6 +52,19 @@ export default function TextInspector({ text, onChange, onDuplicate, onDelete, o
   const bgType = text.backgroundType || 'none';
   const scroll = timing === 'scroll';
 
+  // Built-in fonts plus the ones uploaded in Settings → Fonts.
+  const customFonts = useCustomFonts();
+  const baseOptions = fontFamilyOptions(customFonts).map((o) => ({ ...o, style: { fontFamily: `'${o.value}', 'Inter Variable'` } }));
+  const fontMissing = Boolean(text.fontFamily) && !baseOptions.some((o) => o.value === text.fontFamily);
+  const fontOptions = fontMissing ? [...baseOptions, { value: text.fontFamily, label: `${text.fontFamily} (missing)` }] : baseOptions;
+  // For an uploaded font, mark the weights it really has; others are imitated by the browser.
+  const custom = customFonts.find((f) => f.family === text.fontFamily);
+  const weights = custom ? [...new Set([...FONT_WEIGHTS, ...custom.files.map((f) => f.weight)])].sort((a, b) => a - b) : FONT_WEIGHTS;
+  const weightOptions = weights.map((w) => ({
+    value: w,
+    label: custom && !custom.files.some((f) => f.weight === w) ? `${w} (not uploaded)` : String(w),
+  }));
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 border-b border-ink-700/70 px-5 py-3">
@@ -66,12 +82,21 @@ export default function TextInspector({ text, onChange, onDuplicate, onDelete, o
       </Section>
 
       <Section title="Typography">
-        <Select value={text.fontFamily} onChange={(v) => set({ fontFamily: v })} options={FONT_FAMILIES} aria-label="Font family" style={{ fontFamily: `'${text.fontFamily}'` }} />
+        <div>
+          <Select value={text.fontFamily} onChange={(v) => set({ fontFamily: v })} options={fontOptions} aria-label="Font family" style={{ fontFamily: `'${text.fontFamily}', 'Inter Variable'` }} />
+          {fontMissing ? (
+            <p className="mt-1.5 text-xs text-amber-300">This font was deleted, so the text shows in Inter. Choose another font or upload it again.</p>
+          ) : (
+            <p className="mt-1.5 text-xs text-ink-500">
+              Need another font? <Link to="/settings#fonts" target="_blank" rel="noopener" className="text-ink-300 underline-offset-2 hover:underline">Upload it in Settings → Fonts</Link>
+            </p>
+          )}
+        </div>
         <Pair>
           <Num label="Size" value={text.fontSize} min={4} max={400} step={1} onChange={(v) => set({ fontSize: Math.round(v) })} suffix="px" />
           <div>
             <span className="label">Weight</span>
-            <Select value={text.fontWeight} onChange={(v) => set({ fontWeight: Number(v) })} options={FONT_WEIGHTS.map((w) => ({ value: w, label: String(w) }))} aria-label="Font weight" />
+            <Select value={text.fontWeight} onChange={(v) => set({ fontWeight: Number(v) })} options={weightOptions} aria-label="Font weight" />
           </div>
         </Pair>
         <div className="flex gap-2">

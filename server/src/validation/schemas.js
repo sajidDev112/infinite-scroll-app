@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { STORY_STATUSES, ZOOM_MAX, ZOOM_MIN } from '../../../shared/engine/constants.js';
+import { FOOTER_MAX_BUTTONS, FOOTER_TYPE_IDS } from '../../../shared/engine/footer.js';
 
 const id = z.string().min(1).max(80);
 const color = z.string().max(64);
@@ -148,3 +149,17 @@ export const desktopQuerySchema = z.object({
 });
 
 export const idParamSchema = z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'Invalid id.') });
+
+// ---- site settings: intro footer ----------------------------------------------------
+export const footerSchema = z.object({
+  brandName: z.string().trim().max(80),
+  showBrandName: z.boolean(),
+  showLogo: z.boolean(),
+  logo: z.object({ imageId: z.string().max(64).nullable().optional(), url: z.string().min(1).max(2048) }).nullable(),
+  buttons: z.array(z.object({
+    type: z.enum(FOOTER_TYPE_IDS),
+    enabled: z.boolean(),
+    mode: z.enum(['action', 'share', 'link']),
+    url: z.string().trim().max(500).optional().default(''),
+  })).max(FOOTER_MAX_BUTTONS),
+});

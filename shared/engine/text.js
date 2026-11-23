@@ -113,7 +113,8 @@ export function textBoxStyle(t) {
     width: t.width > 0 ? '100%' : 'max-content',
     maxWidth: '100%',
     height: t.height > 0 ? '100%' : 'auto',
-    fontFamily: `'${t.fontFamily || 'Inter Variable'}', system-ui, sans-serif`,
+    // Inter is the fallback while an uploaded font loads, or if it was deleted.
+    fontFamily: `'${t.fontFamily || 'Inter Variable'}', 'Inter Variable', system-ui, sans-serif`,
     fontSize: u(t.fontSize ?? 48),
     fontWeight: t.fontWeight ?? 600,
     fontStyle: t.fontStyle || 'normal',

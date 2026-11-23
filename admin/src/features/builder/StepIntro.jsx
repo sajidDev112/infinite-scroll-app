@@ -15,6 +15,7 @@ import LayerList from './LayerList.jsx';
 import { PanelTabs, StageControls } from './EditorToolbar.jsx';
 import { textOps } from './textOps.js';
 import { cx } from '../../lib/utils.js';
+import { useFooterSettings } from '../../hooks/useFooterSettings.js';
 
 /** Plays the intro text animation inside the editor stage (same tween as the viewer). */
 function IntroPlayback({ texts, width, height, onDone }) {
@@ -48,6 +49,7 @@ function IntroPlayback({ texts, width, height, onDone }) {
 }
 
 export default function StepIntro({ story, update, aspect, setAspect }) {
+  const footer = useFooterSettings();
   const intro = story.intro;
   const texts = intro.textElements || [];
   const [selectedId, setSelectedId] = useState(null);
@@ -174,7 +176,7 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
             <>
               <IntroBackdrop intro={intro} fallbackImage={fallback} />
               {/* Same share icons + museum logo the viewer shows; keep text clear of it. */}
-              <IntroFooter interactive={false} title={story.title} />
+              <IntroFooter interactive={false} title={story.title} footer={footer} />
               {playing && <IntroPlayback texts={texts} width={width} height={height} onDone={() => setPlaying(false)} />}
             </>
           )}

@@ -15,6 +15,7 @@ export default function StoryPage() {
   const [error, setError] = useState(null);
   const [chrome, setChrome] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [footer, setFooter] = useState(null);
   const idle = useRef(0);
 
   useEffect(() => {
@@ -24,6 +25,9 @@ export default function StoryPage() {
     api.getStory(id, { signal: ctrl.signal }).then(setStory).catch((e) => !ctrl.signal.aborted && setError(e));
     return () => ctrl.abort();
   }, [id]);
+
+  // Intro footer (share buttons, logo, name) from admin Settings.
+  useEffect(() => { api.getFooter().then(setFooter); }, []);
 
   useEffect(() => {
     if (story) document.title = `${story.title} · ${BRAND_NAME}`;
@@ -92,7 +96,7 @@ export default function StoryPage() {
 
   return (
     <div style={{ cursor: chrome ? 'auto' : 'none' }}>
-      <StoryPlayer story={story} onExit={back} exitLabel="Back to stories" shareUrl={shareUrl}>
+      <StoryPlayer story={story} onExit={back} exitLabel="Back to stories" shareUrl={shareUrl} footer={footer}>
         <div className={`absolute top-4 right-4 left-4 z-30 flex items-center justify-between transition-opacity duration-500 sm:top-6 sm:right-6 sm:left-6 ${chrome ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
           <button
             type="button"

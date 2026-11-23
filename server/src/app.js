@@ -10,6 +10,8 @@ import authRoutes from './routes/auth.routes.js';
 import storyRoutes from './routes/story.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import desktopRoutes from './routes/desktop.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
+import fontRoutes from './routes/fonts.routes.js';
 import { dashboardStats } from './services/storyService.js';
 import { countImages } from './services/imageService.js';
 import { serveFile } from './services/fileStorage.js';
@@ -54,6 +56,8 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/stories', storyRoutes);
   app.use('/api/uploads', uploadRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/fonts', fontRoutes);
   app.get('/api/dashboard/stats', requireAuth, requireRole('admin', 'editor'), async (_req, res) => {
     const [stats, totalImages] = await Promise.all([dashboardStats(), countImages()]);
     res.json({ ...stats, totals: { ...stats.totals, images: totalImages } });

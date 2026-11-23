@@ -10,6 +10,7 @@ import { TextElementView } from './TextElementView.jsx';
 import { IntroBackdrop } from './SceneFrame.jsx';
 import { applyBackdrop, applyLens, backdropStyle } from './lens.js';
 import { IntroFooter } from './IntroFooter.jsx';
+import { loadStoryFonts } from './customFonts.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -37,9 +38,10 @@ function loadImage(url) {
  *  onExit     optional → shows "Back" on the completion card
  *  exitLabel  label for that button
  *  shareUrl   link used by the intro's share buttons
+ *  footer     intro footer settings (buttons, logo, name) from admin Settings; defaults if omitted
  *  children   overlay UI rendered above the stage (e.g. a back button)
  */
-export default function StoryPlayer({ story, onExit, exitLabel = 'Back to stories', shareUrl, children }) {
+export default function StoryPlayer({ story, onExit, exitLabel = 'Back to stories', shareUrl, footer, children }) {
   const scenes = useMemo(
     () => [...(story?.scenes || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [story],
@@ -89,7 +91,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
       loadImage(introImage),
       loadImage(scenes[0]?.thumbUrl),
       loadImage(scenes[0]?.imageUrl),
-      document.fonts?.ready ?? Promise.resolve(),
+      loadStoryFonts(story), // built-in and uploaded fonts the text uses
     ];
     let done = 0;
     jobs.forEach((j) => j.then(() => !cancelled && setLoadPct(Math.round((++done / jobs.length) * 100))));
@@ -98,7 +100,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
     return () => {
       cancelled = true;
     };
-  }, [introImage, scenes]);
+  }, [introImage, scenes, story]);
 
   // ---- 2. Build the scroll timeline once everything is in the DOM --------------
   useLayoutEffect(() => {
@@ -391,7 +393,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
               />
             ))}
           </div>
-          <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} shareUrl={shareUrl} />
+          <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} shareUrl={shareUrl} footer={footer} />
           {!scenes.length && <div className="sp-empty">This story has no scenes yet.</div>}
         </div>
 

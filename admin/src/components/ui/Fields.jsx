@@ -41,7 +41,7 @@ export function Select({ className, options, value, onChange, style, ...rest }) 
       {...rest}
     >
       {options.map((o) => (
-        <option key={String(o.value)} value={o.value} disabled={o.disabled}>{o.label}</option>
+        <option key={String(o.value)} value={o.value} disabled={o.disabled} style={o.style}>{o.label}</option>
       ))}
     </select>
   );

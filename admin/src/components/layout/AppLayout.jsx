@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadCustomFonts } from '../../hooks/useCustomFonts.js';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router';
 import { BookOpen, LayoutDashboard, LogOut, Menu, Settings, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -9,6 +10,15 @@ import { cx } from '../../lib/utils.js';
 export function ProtectedRoute({ children }) {
   const { status } = useAuth();
   const location = useLocation();
+  // Uploaded fonts (Settings → Fonts) are registered once signed in, for the builder and previews.
+  useEffect(() => {
+    if (status !== 'signed-in') return undefined;
+    loadCustomFonts();
+    // A font uploaded in another tab shows up when you come back to this one.
+    const refresh = () => loadCustomFonts({ force: true });
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [status]);
   if (status === 'checking') return <Spinner className="h-full" label="Checking session…" />;
   if (status !== 'signed-in') return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return children;

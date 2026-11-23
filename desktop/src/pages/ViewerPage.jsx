@@ -16,6 +16,8 @@ export default function ViewerPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [shareTemplate, setShareTemplate] = useState('');
   useEffect(() => { getConfig().then((c) => setShareTemplate(c.shareUrl)); }, []);
+  const [footer, setFooter] = useState(null);
+  useEffect(() => { api.getFooter().then(setFooter); }, []);
   const idle = useRef(0);
 
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function ViewerPage() {
 
   return (
     <div style={{ cursor: chrome ? 'auto' : 'none' }}>
-      <StoryPlayer story={story} onExit={back} exitLabel="Back to stories" shareUrl={resolveShareUrl(shareTemplate, story.id)}>
+      <StoryPlayer story={story} onExit={back} exitLabel="Back to stories" shareUrl={resolveShareUrl(shareTemplate, story.id)} footer={footer}>
         <div className={`absolute top-6 right-6 left-6 z-30 flex items-center justify-between transition-opacity duration-500 ${chrome ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
           <button
             type="button"

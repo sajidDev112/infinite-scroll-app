@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { StoryPlayer, resolveShareUrl } from '@shared/react/index.js';
 import { storiesApi, errorMessage } from '../lib/api.js';
 import { ErrorState, Spinner } from '../components/ui/Misc.jsx';
+import { useFooterSettings } from '../hooks/useFooterSettings.js';
 
 /**
  * Full-screen preview of the working copy, rendered by the same StoryPlayer the
@@ -18,6 +19,7 @@ export default function StoryPreviewPage() {
   const from = typeof location.state?.from === 'string' ? location.state.from : '/stories';
   const backLabel = from.includes('/edit') ? 'Back to editor' : 'Back to stories';
   const [story, setStory] = useState(null);
+  const footer = useFooterSettings();
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function StoryPreviewPage() {
   if (!story) return <Spinner className="h-full bg-black" label="Loading preview…" />;
 
   return (
-    <StoryPlayer story={story} onExit={back} exitLabel={backLabel} shareUrl={resolveShareUrl(import.meta.env.VITE_SHARE_URL, story.id)}>
+    <StoryPlayer story={story} onExit={back} exitLabel={backLabel} shareUrl={resolveShareUrl(import.meta.env.VITE_SHARE_URL, story.id)} footer={footer}>
       <div className="absolute top-5 left-5 z-30 flex items-center gap-3">
         <button
           type="button"

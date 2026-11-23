@@ -77,3 +77,30 @@ export const uploadsApi = {
   },
   remove: (id) => http.delete(`/uploads/${id}`),
 };
+
+/** Site-wide settings (admins can save; editors can read). */
+export const settingsApi = {
+  getFooter: () => http.get('/settings/footer').then((r) => r.data.footer),
+  saveFooter: (footer) => http.put('/settings/footer', footer).then((r) => r.data.footer),
+  resetFooter: () => http.delete('/settings/footer').then((r) => r.data.footer),
+};
+
+/** Fonts uploaded in Settings → Fonts (admins can change; editors can read). */
+export const fontsApi = {
+  list: () => http.get('/fonts').then((r) => r.data.fonts),
+  /** `items` = [{ file, weight, style }] added to the font family `family`. */
+  upload(family, items, onProgress) {
+    const form = new FormData();
+    form.append('family', family);
+    form.append('variants', JSON.stringify(items.map(({ weight, style }) => ({ weight, style }))));
+    items.forEach(({ file }) => form.append('files', file));
+    return http
+      .post('/fonts', form, {
+        timeout: 0,
+        onUploadProgress: (e) => e.total && onProgress?.(Math.round((e.loaded / e.total) * 100)),
+      })
+      .then((r) => r.data.font);
+  },
+  removeFile: (id, key) => http.delete(`/fonts/${id}/files/${key}`).then((r) => r.data.font),
+  remove: (id) => http.delete(`/fonts/${id}`),
+};
