@@ -36,6 +36,7 @@ export function SceneFrame({ scene, progress = 0, width, height, mode = 'play', 
           {scene.imageUrl && <img className="sp-img" src={scene.imageUrl} alt="" draggable={false} />}
         </div>
       </div>
+      <SceneOverlay scene={scene} />
       <div className="sp-texts">
         {mode === 'play'
           ? windows.flatMap((win) =>
@@ -47,6 +48,13 @@ export function SceneFrame({ scene, progress = 0, width, height, mode = 'play', 
       </div>
     </div>
   );
+}
+
+/** The scene's own colour overlay (between the image and its text). Nothing when opacity is 0. */
+export function SceneOverlay({ scene }) {
+  const opacity = Number(scene?.overlayOpacity) || 0;
+  if (opacity <= 0) return null;
+  return <div className="sp-scene-overlay" style={{ background: scene.overlayColor || '#000', opacity }} aria-hidden="true" />;
 }
 
 /** Intro background (image + overlay) shared by the intro editor and the player. */

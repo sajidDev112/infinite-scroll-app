@@ -20,7 +20,8 @@ export function checkFile(file) {
  * Uploads files one request per file (so each gets its own progress bar),
  * up to 3 at a time. `onUploaded(image, item)` fires as each one finishes.
  */
-export function useUploadQueue(onUploaded) {
+/** `storyId` (once the story is saved) puts uploads straight into the story's folder. */
+export function useUploadQueue(onUploaded, { storyId } = {}) {
   const [items, setItems] = useState([]);
   const seq = useRef(0);
   const active = useRef(0);
@@ -28,6 +29,8 @@ export function useUploadQueue(onUploaded) {
   const controllers = useRef(new Map());
   const cb = useRef(onUploaded);
   cb.current = onUploaded;
+  const storyIdRef = useRef(storyId);
+  storyIdRef.current = storyId;
 
   const patch = (key, p) => setItems((list) => list.map((it) => (it.key === key ? { ...it, ...p } : it)));
 
@@ -39,7 +42,7 @@ export function useUploadQueue(onUploaded) {
       controllers.current.set(item.key, ctrl);
       patch(item.key, { status: 'uploading' });
       uploadsApi
-        .upload(item.file, (progress) => patch(item.key, { progress }), ctrl.signal)
+        .upload(item.file, (progress) => patch(item.key, { progress }), ctrl.signal, { storyId: storyIdRef.current })
         .then((image) => {
           cb.current?.(image, item);
           setItems((list) => list.filter((it) => it.key !== item.key));

@@ -201,3 +201,37 @@ test('uploaded fonts: file name guesses, format sniffing, dropdown and story usa
   });
   assert.deepEqual(uses, [{ family: 'Geometria', weight: 700, style: 'normal' }, { family: 'Lora Variable', weight: 600, style: 'italic' }]);
 });
+
+test('each intro background keeps its own text and overlay', async () => {
+  const { createIntro, switchIntroImage, relinkImages } = await import('../engine/defaults.js');
+  const cover = { imageId: 'coverId', url: '/c.webp', thumbUrl: '/c-t.webp', width: 10, height: 20 };
+  const scene = { imageId: 'sceneId', url: '/s.webp', thumbUrl: '/s-t.webp', width: 30, height: 20 };
+  let intro = { ...switchIntroImage(createIntro(), cover), textElements: [{ id: 'a', content: 'Cover text' }], overlayOpacity: 0.6 };
+
+  intro = switchIntroImage(intro, scene, ['coverId', 'sceneId']);
+  assert.equal(intro.imageId, 'sceneId');
+  assert.deepEqual(intro.textElements, [], 'a new background starts with no text');
+  assert.equal(intro.overlayOpacity, 0.35);
+  intro = { ...intro, textElements: [{ id: 'b', content: 'Scene text' }] };
+
+  intro = switchIntroImage(intro, cover, ['coverId', 'sceneId']);
+  assert.deepEqual(intro.textElements.map((t) => t.content), ['Cover text']);
+  assert.equal(intro.overlayOpacity, 0.6);
+  assert.deepEqual(intro.layouts.sceneId.textElements.map((t) => t.content), ['Scene text']);
+  assert.equal(intro.layouts.coverId, undefined, 'the active layout is not duplicated');
+
+  // Image ids that change on save are followed.
+  const story = relinkImages({ intro }, { sceneId: { imageId: 'newId', url: '/n.webp', thumbUrl: '/n-t.webp' } });
+  assert.ok(story.intro.layouts.newId && !story.intro.layouts.sceneId);
+});
+
+test('logo and social icons show on the cover image only, unless set per background', async () => {
+  const { introShowsFooter } = await import('../engine/defaults.js');
+  const story = { coverImage: { imageId: 'coverId' }, scenes: [{ imageId: 'sceneId' }] };
+  assert.equal(introShowsFooter({ ...story, intro: { imageId: null } }), true, 'Automatic');
+  assert.equal(introShowsFooter({ ...story, intro: { imageId: 'coverId' } }), true);
+  assert.equal(introShowsFooter({ ...story, intro: { imageId: 'sceneId' } }), false);
+  assert.equal(introShowsFooter({ ...story, intro: { imageId: 'sceneId', showFooter: true } }), true);
+  assert.equal(introShowsFooter({ ...story, intro: { imageId: 'coverId', showFooter: false } }), false);
+  assert.equal(introShowsFooter({ scenes: story.scenes, intro: { imageId: 'sceneId' } }), true, 'no cover: first scene counts as cover');
+});

@@ -4,6 +4,8 @@ import sharp from 'sharp';
 
 process.env.JWT_SECRET = 'test-secret-that-is-definitely-longer-than-32-chars';
 process.env.NODE_ENV = 'test';
+process.env.IMAGE_STORAGE = 'gridfs'; // never touch a real S3 bucket from tests
+process.env.S3_ROOT_FOLDER = 'test-app';
 // A throw-away database on the local MongoDB, dropped when the suite ends.
 const DB_NAME = `story_platform_test_${process.pid}`;
 const mongoose = (await import('mongoose')).default;
@@ -11,6 +13,7 @@ const { connectDb, disconnectDb } = await import('../src/config/db.js');
 const MONGO = (process.env.MONGODB_TEST_URI || 'mongodb://127.0.0.1:27017').replace(/\/$/, '');
 await connectDb(`${MONGO}/${DB_NAME}`);
 const storedFiles = () => mongoose.connection.db.collection('images.files').countDocuments();
+const storedFontFiles = () => mongoose.connection.db.collection('fonts.files').countDocuments();
 const { createApp } = await import('../src/app.js');
 const { createAdmin } = await import('../src/services/adminService.js');
 const { createScene, createTextElement } = await import('../../shared/engine/defaults.js');
@@ -80,7 +83,7 @@ test('image upload: resized, re-encoded, stored with thumbnail', async () => {
   [img] = r.body.images;
   assert.equal(img.width, 3840);
   assert.equal(img.height, 1920);
-  assert.match(img.url, /^\/uploads\/story-images\/[A-Za-z0-9]{20}\/full\.webp$/);
+  assert.match(img.url, /^\/uploads\/test-app\/pending-uploads\/photo-[A-Za-z0-9]{20}-full\.webp$/, 'not filed into a story yet');
   assert.equal(await storedFiles(), 2);
   const file = await fetch(base + img.url);
   assert.equal(file.status, 200);
@@ -107,6 +110,30 @@ test('story create, list, search and status rules', async () => {
   storyId = r.body.story.id;
   assert.equal(r.body.story.sceneCount, 1);
   assert.deepEqual(r.body.story.imageIds, [img.id]);
+  // Saving files the upload into the story's own folder (same image id, new link).
+  const folder = r.body.story.folder;
+  assert.equal(folder, `the-lighthouse-${storyId.slice(0, 6).toLowerCase()}`);
+  const moved = r.body.story.imageChanges[img.id];
+  assert.equal(moved.imageId, img.id);
+  assert.equal(moved.url, `/uploads/test-app/stories/${folder}/photo-${img.id}-full.webp`);
+  assert.equal(r.body.story.scenes[0].imageUrl, moved.url);
+  assert.equal((await fetch(base + moved.url)).status, 200);
+  assert.equal((await fetch(base + img.url)).status, 404, 'old file removed');
+  assert.equal(await storedFiles(), 2);
+  img = { ...img, url: moved.url, thumbUrl: moved.thumbUrl };
+
+  // A stale link sent back by the editor is corrected on save.
+  const stale = await api('PUT', `/api/stories/${storyId}`, { body: { scenes: [{ ...r.body.story.scenes[0], imageUrl: '/uploads/old/link.webp' }] } });
+  assert.equal(stale.body.story.scenes[0].imageUrl, moved.url);
+
+  // An upload for an existing story goes straight into its folder.
+  const form = new FormData();
+  form.append('storyId', storyId);
+  form.append('images', new Blob([await pngBuffer(40, 30)], { type: 'image/png' }), 'Second Shot.png');
+  const direct = await api('POST', '/api/uploads/images', { form });
+  assert.equal(direct.status, 201, JSON.stringify(direct.body));
+  assert.ok(direct.body.images[0].url.startsWith(`/uploads/test-app/stories/${folder}/second-shot-`));
+  assert.equal((await api('DELETE', `/api/uploads/${direct.body.images[0].id}`)).status, 204);
 
   await api('POST', '/api/stories', { body: { title: 'Empty one' } });
   const list = await api('GET', '/api/stories?search=light&status=draft');
@@ -160,10 +187,15 @@ test('image refcounting across duplicate and delete', async () => {
   const dup = await api('POST', `/api/stories/${storyId}/duplicate`);
   assert.equal(dup.status, 201);
   assert.equal(dup.body.story.status, 'draft');
+  // The copy gets its own folder with its own copy of the image.
+  const copy = dup.body.story.scenes[0];
+  assert.notEqual(copy.imageId, img.id);
+  assert.ok(copy.imageUrl.startsWith(`/uploads/test-app/stories/${dup.body.story.folder}/`));
+  assert.equal(await storedFiles(), 4);
 
   assert.equal((await api('DELETE', `/api/stories/${storyId}`, { auth: editorToken })).status, 403);
   assert.equal((await api('DELETE', `/api/stories/${storyId}`)).status, 204);
-  assert.equal(await storedFiles(), 2, 'duplicate still uses the image');
+  assert.equal(await storedFiles(), 2, "the original's files are removed; the copy keeps its own");
   assert.equal((await api('GET', `/api/desktop/stories/${storyId}`, { auth: null })).status, 404);
 
   assert.equal((await api('DELETE', `/api/stories/${dup.body.story.id}`)).status, 204);
@@ -219,7 +251,7 @@ test('uploaded fonts: admin-only upload, file checks, replace a weight, usage co
     files.forEach(([buf, name]) => form.append('files', new Blob([buf]), name));
     return api('POST', '/api/fonts', { form, auth });
   };
-  const before = await storedFiles();
+  const before = await storedFontFiles();
 
   assert.equal((await send('Geometria', [[fontFile('wOF2'), 'Geometria.woff2']], [{ weight: 400, style: 'normal' }], editorToken)).status, 403);
   assert.equal((await send('Geometria', [[Buffer.from('<html>hi</html>'), 'Geometria.woff2']], [{ weight: 400, style: 'normal' }])).status, 400, 'content is checked, not just the name');
@@ -236,14 +268,14 @@ test('uploaded fonts: admin-only upload, file checks, replace a weight, usage co
   const file = await fetch(base + font.files[0].url);
   assert.equal(file.status, 200);
   assert.equal(file.headers.get('content-type'), 'font/woff2');
-  assert.equal(await storedFiles(), before + 2);
+  assert.equal(await storedFontFiles(), before + 2);
 
   // Same weight again replaces the old file; the name matches case-insensitively.
   const again = await send('geometria', [[fontFile('wOFF'), 'Geometria-Regular.woff']], [{ weight: 400, style: 'normal' }]);
   assert.equal(again.status, 201);
   assert.equal(again.body.font.id, font.id);
   assert.equal(again.body.font.files.find((f) => f.key === '400-normal').format, 'woff');
-  assert.equal(await storedFiles(), before + 2, 'replaced file removed');
+  assert.equal(await storedFontFiles(), before + 2, 'replaced file removed');
 
   // Usage: a story using the font is counted.
   const story = await api('POST', '/api/stories', { body: { title: 'Fonts', intro: { textElements: [createTextElement({ content: 'Hi', fontFamily: 'Geometria' })] } } });
@@ -259,6 +291,6 @@ test('uploaded fonts: admin-only upload, file checks, replace a weight, usage co
   assert.equal((await api('DELETE', `/api/fonts/${font.id}`, { auth: editorToken })).status, 403);
   assert.equal((await api('DELETE', `/api/fonts/${font.id}`)).status, 204);
   assert.equal((await api('GET', '/api/fonts')).body.fonts.length, 0);
-  assert.equal(await storedFiles(), before, 'font files removed');
+  assert.equal(await storedFontFiles(), before, 'font files removed');
   await api('DELETE', `/api/stories/${story.body.story.id}`);
 });

@@ -1,9 +1,9 @@
 import { PublishedStory, Story } from '../models/index.js';
 import { ApiError } from '../utils/errors.js';
-import { now, plain } from '../utils/serialize.js';
+import { newId, now, plain } from '../utils/serialize.js';
 import { collectImageIds, createIntro } from '../../../shared/engine/defaults.js';
 import { validateForPublish } from '../../../shared/engine/validate.js';
-import { cleanupImages } from './imageService.js';
+import { cleanupImages, fileStoryImages, storyFolderName } from './imageService.js';
 
 const SUMMARY_FIELDS = [
   'title', 'description', 'category', 'coverImage', 'thumbnail', 'status', 'sceneCount',
@@ -77,7 +77,10 @@ export async function createStory(input, admin) {
     intro: input.intro || createIntro(),
     scenes: input.scenes || [],
   };
+  const id = newId();
   const doc = await Story.create({
+    _id: id,
+    folder: storyFolderName({ _id: id, title: base.title }),
     ...base,
     ...derived(base),
     isPublished: false,
@@ -88,7 +91,22 @@ export async function createStory(input, admin) {
     createdBy: admin.id,
     updatedBy: admin.id,
   });
-  return plain(doc.toObject());
+  return withFiledImages(doc._id);
+}
+
+/**
+ * Moves / copies the story's images into its own folder, then returns the story plus
+ * `imageChanges` ({ oldId: { imageId, url, thumbUrl } }) so the editor can update its links.
+ */
+async function withFiledImages(id) {
+  let imageChanges = {};
+  try {
+    imageChanges = (await fileStoryImages(id)).changes;
+  } catch (err) {
+    // The story is saved either way; filing is retried on the next save.
+    console.warn(`[images] could not file images for story ${id}:`, err.message);
+  }
+  return { ...(await getStory(id)), imageChanges };
 }
 
 export async function updateStory(id, patch, admin) {
@@ -120,7 +138,7 @@ export async function updateStory(id, patch, admin) {
 
   const removed = (current.imageIds || []).filter((x) => !d.imageIds.includes(x));
   if (removed.length) cleanupImages(removed);
-  return getStory(id);
+  return withFiledImages(id);
 }
 
 function assertStatusAllowed(status, current) {

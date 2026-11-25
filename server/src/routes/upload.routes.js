@@ -9,12 +9,17 @@ import { ApiError } from '../utils/errors.js';
 const router = Router();
 router.use(requireAuth, requireRole('admin', 'editor'));
 
-/** multipart/form-data, field "images" (one or more files). */
+/**
+ * multipart/form-data, field "images" (one or more files). Optional fields (put them
+ * before the files): "storyId" = save into that story's folder; "scope" = "footer" for the logo.
+ */
 router.post('/images', imageUpload.array('images', 20), async (req, res) => {
   if (!req.files?.length) throw ApiError.badRequest('Attach at least one image in the "images" field.');
   const images = [];
   // Sequential keeps memory bounded when several large files arrive at once.
-  for (const file of req.files) images.push(await processAndStoreImage(file, req.admin.id));
+  const storyId = /^[A-Za-z0-9_-]{1,64}$/.test(req.body?.storyId || '') ? req.body.storyId : null;
+  const scope = req.body?.scope === 'footer' ? 'footer' : null;
+  for (const file of req.files) images.push(await processAndStoreImage(file, req.admin.id, { storyId, scope }));
   res.status(201).json({ images });
 });
 

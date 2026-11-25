@@ -2,7 +2,7 @@ import { Setting } from '../models/index.js';
 import { ApiError } from '../utils/errors.js';
 import { now } from '../utils/serialize.js';
 import { DEFAULT_FOOTER, footerIssues, normalizeFooter } from '../../../shared/engine/footer.js';
-import { cleanupImages } from './imageService.js';
+import { cleanupImages, fileFooterLogo } from './imageService.js';
 
 const FOOTER_ID = 'footer';
 
@@ -18,6 +18,8 @@ export async function updateFooter(input, admin) {
   if (issues.length) {
     throw ApiError.unprocessable('Some footer buttons need a link.', issues.map((x) => ({ path: `buttons.${x.index}.url`, message: x.message })));
   }
+  // A logo uploaded somewhere else is moved into settings/footer-logo.
+  if (footer.logo?.imageId) footer.logo = await fileFooterLogo(footer.logo).catch(() => footer.logo);
   const before = await getFooter();
   await Setting.updateOne(
     { _id: FOOTER_ID },

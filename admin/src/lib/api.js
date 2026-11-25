@@ -64,8 +64,12 @@ export const storiesApi = {
 };
 
 export const uploadsApi = {
-  upload(file, onProgress, signal) {
+  /** `storyId`: save into that story's folder; `scope: 'footer'` for the footer logo. */
+  upload(file, onProgress, signal, { storyId, scope } = {}) {
     const form = new FormData();
+    // Fields before the file, so the server knows them when the file arrives.
+    if (storyId) form.append('storyId', storyId);
+    if (scope) form.append('scope', scope);
     form.append('images', file);
     return http
       .post('/uploads/images', form, {

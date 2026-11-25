@@ -87,6 +87,8 @@ export const sceneSchema = z.object({
   scrollLength: num(1, 12).optional(),
   fit: z.enum(['cover', 'contain']).optional(),
   openWithFullImage: z.boolean().optional(),
+  overlayColor: color.optional(),
+  overlayOpacity: unit.optional(),
   transition: z
     .object({ type: z.enum(['slideOver', 'crossfade', 'fadeBlack', 'slideUp', 'zoomThrough']), duration: num(0.2, 2) })
     .optional(),
@@ -107,6 +109,20 @@ export const introSchema = z.object({
   overlayOpacity: unit.optional(),
   exitType: z.enum(['fade', 'slideOver']).optional(),
   textElements: z.array(textElementSchema).max(30).default([]),
+  showFooter: z.boolean().optional(),
+  // Text + overlay kept for the other background choices (key = image id or 'auto').
+  layouts: z
+    .record(
+      z.string().max(64),
+      z.object({
+        textElements: z.array(textElementSchema).max(30).default([]),
+        overlayColor: color.optional(),
+        overlayOpacity: unit.optional(),
+        showFooter: z.boolean().optional(),
+      }),
+    )
+    .refine((r) => Object.keys(r).length <= 60, 'Too many saved intro layouts.')
+    .optional(),
 });
 
 const storyFields = {

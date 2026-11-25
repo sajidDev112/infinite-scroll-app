@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { produce } from 'immer';
-import { createEmptyStory, createIntro } from '@shared/engine/defaults.js';
+import { createEmptyStory, createIntro, relinkImages } from '@shared/engine/defaults.js';
 import { storiesApi, errorMessage } from '../../lib/api.js';
 import { loadPrefs } from '../../lib/utils.js';
 
@@ -48,11 +48,16 @@ export function useStoryEditor(id) {
 
   const dirty = version !== savedVersion.current;
 
+  // The server files images into the story's folder on save; follow the new links
+  // (without marking the story as changed).
   const mergeMeta = (saved) => {
-    setStory((prev) => produce(prev, (d) => {
-      META_KEYS.forEach((k) => { d[k] = saved[k]; });
-      d.status = saved.status;
-    }));
+    setStory((prev) => {
+      const next = produce(prev, (d) => {
+        META_KEYS.forEach((k) => { d[k] = saved[k]; });
+        d.status = saved.status;
+      });
+      return relinkImages(next, saved.imageChanges);
+    });
   };
 
   /** Saves the current content. Resolves to the saved story (or throws). */
@@ -84,7 +89,8 @@ export function useStoryEditor(id) {
     try {
       const created = await storiesApi.create(contentOf(storyRef.current));
       savedVersion.current = versionRef.current;
-      setStory((prev) => ({ ...prev, ...created, scenes: prev.scenes, intro: prev.intro }));
+      const { imageChanges, ...meta } = created;
+      setStory((prev) => relinkImages({ ...prev, ...meta, scenes: prev.scenes, intro: prev.intro, coverImage: prev.coverImage }, imageChanges));
       setSaveState({ saving: false, error: '', lastSavedAt: new Date() });
       return created;
     } catch (e) {

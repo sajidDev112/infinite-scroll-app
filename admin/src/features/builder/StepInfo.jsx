@@ -28,7 +28,7 @@ function CoverPicker({ story, update }) {
     if (err) return toast.error(err);
     setProgress(0);
     try {
-      const img = await uploadsApi.upload(file, setProgress);
+      const img = await uploadsApi.upload(file, setProgress, undefined, { storyId: story.id });
       const old = story.coverImage?.imageId;
       update((d) => { d.coverImage = imageRef(img); });
       releaseImage(old, { ...story, coverImage: imageRef(img) });
@@ -116,7 +116,7 @@ export default function StepInfo({ story, update, errors: rawErrors, onBusyChang
       d.scenes.splice(at < 0 ? d.scenes.length : at, 0, { ...scene });
       d.scenes.forEach((s, i) => { s.order = i; });
     });
-  });
+  }, { storyId: story.id });
   const busy = queue.busy || Object.keys(replacing).length > 0;
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
 
@@ -147,7 +147,7 @@ export default function StepInfo({ story, update, errors: rawErrors, onBusyChang
     if (err) return toast.error(err);
     setReplacing((r) => ({ ...r, [scene.sceneId]: { progress: 0 } }));
     try {
-      const img = await uploadsApi.upload(file, (p) => setReplacing((r) => ({ ...r, [scene.sceneId]: { progress: p } })));
+      const img = await uploadsApi.upload(file, (p) => setReplacing((r) => ({ ...r, [scene.sceneId]: { progress: p } })), undefined, { storyId: story.id });
       update((d) => {
         const s = d.scenes.find((x) => x.sceneId === scene.sceneId);
         if (!s) return;

@@ -37,6 +37,8 @@ const storySchema = new Schema({
   imageCount: { type: Number, default: 0 },
   sceneCount: { type: Number, default: 0 },
   titleLower: { type: String, default: '' },
+  // Image folder (S3 / GridFS) for this story, e.g. "the-lighthouse-xk3d9a"; set once, kept on rename.
+  folder: { type: String, default: null },
   // Publishing:
   isPublished: { type: Boolean, default: false },
   publishedAt: { type: Date, default: null },
@@ -80,6 +82,10 @@ const imageSchema = new Schema({
   originalName: String,
   originalSize: Number,
   mimeType: { type: String, default: 'image/webp' },
+  // Where the files are: 's3' (bucket) or 'gridfs' (MongoDB; images from before S3).
+  storage: { type: String, enum: ['s3', 'gridfs'], default: 'gridfs' },
+  // The story whose folder holds the files; 'settings' for the footer logo; null = not filed yet.
+  owner: { type: String, default: null, index: true },
   uploadedBy: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 }, options('images'));

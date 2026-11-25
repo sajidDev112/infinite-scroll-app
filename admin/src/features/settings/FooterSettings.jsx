@@ -77,7 +77,7 @@ export default function FooterSettings({ canEdit }) {
     if (err) return toast.error(err);
     setUploading(0);
     try {
-      const img = await uploadsApi.upload(file, setUploading);
+      const img = await uploadsApi.upload(file, setUploading, undefined, { scope: 'footer' });
       set({ logo: { imageId: img.id, url: img.url }, showLogo: true });
     } catch (e) {
       toast.error(errorMessage(e, 'Logo upload failed.'));

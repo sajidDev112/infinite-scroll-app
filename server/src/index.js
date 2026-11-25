@@ -2,6 +2,8 @@ import { assertEnv, env } from './config/env.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { createApp } from './app.js';
 import { ensureBootstrapAdmin } from './services/adminService.js';
+import { cleanupPendingUploads } from './services/imageService.js';
+import { s3Config, s3Enabled } from './services/imageStore.js';
 
 try {
   assertEnv();
@@ -28,7 +30,18 @@ try {
 
 const server = createApp().listen(env.port, () => {
   console.log(`Story API listening on http://localhost:${env.port} (${env.nodeEnv})`);
+  const c = s3Config();
+  console.log(s3Enabled()
+    ? `Images: AWS S3 bucket "${c.bucket}" (${c.region}), folder "${c.root}/"`
+    : 'Images: MongoDB GridFS (set AWS_S3_BUCKET and the AWS keys in .env to use S3)');
 });
+
+// Uploads never saved into a story are removed after a day; checked now and every 6 hours.
+const sweep = () => cleanupPendingUploads()
+  .then((n) => n && console.log(`Removed ${n} unused upload(s)`))
+  .catch((err) => console.warn('[images] pending cleanup failed:', err.message));
+setTimeout(sweep, 60_000).unref();
+setInterval(sweep, 6 * 60 * 60 * 1000).unref();
 
 const shutdown = () => server.close(async () => {
   await disconnectDb().catch(() => {});

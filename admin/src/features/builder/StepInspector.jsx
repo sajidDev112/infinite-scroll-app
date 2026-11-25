@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, Copy, Crosshair, Plus, Trash2, Type } from 'lucide-
 import { REFERENCE_SCROLL_LENGTH, SCROLL_LENGTH_MAX, SCROLL_LENGTH_MIN, TRANSITION_TYPES, ZOOM_PRESETS, ZOOM_SPEED_PRESETS } from '@shared/engine/constants.js';
 import { EASINGS } from '@shared/engine/easing.js';
 import { Button } from '../../components/ui/Button.jsx';
-import { Field, Input, NumberInput, RangeField, Segmented, Select } from '../../components/ui/Fields.jsx';
+import { ColorField, Field, Input, NumberInput, RangeField, Segmented, Select } from '../../components/ui/Fields.jsx';
 import { cx } from '../../lib/utils.js';
 
 const THIRDS = [1 / 3, 0.5, 2 / 3];
@@ -236,6 +236,20 @@ export function SceneSettings({ scene, index, isLast, onChange, onApplyToAll }) 
               : 'The scene appears showing the whole image, then scrolling zooms into step 1 and on through the next steps.'}
           </p>
         </div>
+      </Block>
+      <Block title="Overlay">
+        <ColorField label="Overlay color" value={scene.overlayColor || '#000000'} onChange={(v) => onChange({ overlayColor: v })} />
+        <RangeField
+          label="Overlay opacity"
+          value={scene.overlayOpacity ?? 0}
+          min={0}
+          max={0.95}
+          step={0.01}
+          scale={100}
+          suffix="%"
+          hint="Darkens this scene's image only, so its text stays readable. 0% = off."
+          onChange={(v) => onChange({ overlayOpacity: v })}
+        />
       </Block>
       <Block title="Transition to next scene">
         {isLast ? (

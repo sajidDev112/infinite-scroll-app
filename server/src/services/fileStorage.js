@@ -1,30 +1,32 @@
 import mongoose from 'mongoose';
 
 /**
- * Image files live in MongoDB GridFS (bucket "images": collections images.files / images.chunks),
- * keyed by their path, e.g. "story-images/<id>/full.webp". This server serves them at
- * /uploads/<path>, so stored links are relative and work on any host.
+ * Files kept in MongoDB GridFS, keyed by their path. Font files ("fonts/…") use the "fonts" bucket
+ * (fonts.files / fonts.chunks); anything else (images, only when S3 is off) uses the "images" bucket.
+ * This server serves them at /uploads/<path>, so stored links are relative and work on any host.
  */
 export const LOCAL_PREFIX = '/uploads/';
-const BUCKET = 'images';
+const bucketName = (path) => (String(path).startsWith('fonts/') ? 'fonts' : 'images');
 const CACHE_LIMIT = Number(process.env.FILE_CACHE_MB || 48) * 1024 * 1024; // fits a 512 MB host
 const MAX_PARALLEL_READS = Number(process.env.FILE_READS_PARALLEL || 4);
 
-let bucket = null;
-function gridfs() {
+const buckets = new Map();
+function gridfs(path) {
   const db = mongoose.connection.db;
   if (!db) throw new Error('MongoDB is not connected.');
-  if (!bucket || bucket.s?.db !== db) bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: BUCKET });
-  return bucket;
+  const name = bucketName(path);
+  let b = buckets.get(name);
+  if (!b || b.s?.db !== db) buckets.set(name, (b = new mongoose.mongo.GridFSBucket(db, { bucketName: name })));
+  return b;
 }
 
-const filesCol = () => mongoose.connection.db.collection(`${BUCKET}.files`);
+const filesCol = (path) => mongoose.connection.db.collection(`${bucketName(path)}.files`);
 
 /** Stores a file (replacing an older one with the same path) and returns its URL. */
 export async function putFile(path, buffer, contentType = 'image/webp') {
   await deleteFile(path);
   await new Promise((resolve, reject) => {
-    const up = gridfs().openUploadStream(path, { metadata: { contentType } });
+    const up = gridfs(path).openUploadStream(path, { metadata: { contentType } });
     up.once('finish', resolve).once('error', reject);
     up.end(buffer);
   });
@@ -33,8 +35,8 @@ export async function putFile(path, buffer, contentType = 'image/webp') {
 
 export async function deleteFile(path) {
   if (!path) return;
-  const files = await filesCol().find({ filename: path }, { projection: { _id: 1 } }).toArray();
-  await Promise.all(files.map((f) => gridfs().delete(f._id).catch(() => {})));
+  const files = await filesCol(path).find({ filename: path }, { projection: { _id: 1 } }).toArray();
+  await Promise.all(files.map((f) => gridfs(path).delete(f._id).catch(() => {})));
   cache.delete(path);
 }
 
@@ -65,11 +67,11 @@ async function limited(fn) {
 }
 
 async function readFile(path) {
-  const info = await filesCol().find({ filename: path }).sort({ uploadDate: -1 }).limit(1).next();
+  const info = await filesCol(path).find({ filename: path }).sort({ uploadDate: -1 }).limit(1).next();
   if (!info) return null;
   const parts = [];
   await new Promise((resolve, reject) => {
-    gridfs().openDownloadStream(info._id)
+    gridfs(path).openDownloadStream(info._id)
       .on('data', (c) => parts.push(c)).once('end', resolve).once('error', reject);
   });
   const file = {

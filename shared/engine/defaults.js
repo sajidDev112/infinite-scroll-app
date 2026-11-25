@@ -87,6 +87,8 @@ export function createScene(img, order = 0) {
     title: '',
     scrollLength: DEFAULT_SCROLL_LENGTH,
     fit: 'cover',
+    overlayColor: '#000000',
+    overlayOpacity: 0, // per-scene darkening behind the text (0 = off)
     transition: { type: 'slideOver', duration: 1 },
     animationSteps: [createStep({ progress: 0 }), createStep({ progress: 1 })],
   };
@@ -103,6 +105,53 @@ export function createIntro() {
     overlayOpacity: 0.35,
     exitType: 'slideOver', // or 'fade'
     textElements: [],
+  };
+}
+
+/** Key of an intro background choice in intro.layouts ('auto' = cover or first scene). */
+export const introLayoutKey = (imageId) => imageId || 'auto';
+
+const INTRO_LOOK = ['textElements', 'overlayColor', 'overlayOpacity', 'showFooter'];
+
+/**
+ * Whether the intro shows the logo + social icons. Set per background with intro.showFooter;
+ * by default only the cover image (or the Automatic choice) shows them.
+ */
+export function introShowsFooter(story) {
+  const intro = story?.intro;
+  if (typeof intro?.showFooter === 'boolean') return intro.showFooter;
+  const id = intro?.imageId;
+  // No cover image: the first scene stands in for it (as on the story card).
+  const coverId = story?.coverImage?.imageId ?? story?.scenes?.[0]?.imageId;
+  return !id || id === coverId;
+}
+
+/**
+ * Switches the intro background. Each background choice keeps its own text and overlay:
+ * the current one is stored in intro.layouts under its key, and the new background's saved
+ * text/overlay (or a blank start) becomes the active intro.textElements/overlay, which is
+ * what viewers see. `keepKeys` (optional) drops saved layouts of images no longer in the story.
+ */
+export function switchIntroImage(intro, img, keepKeys = null) {
+  const from = introLayoutKey(intro?.imageId);
+  const to = introLayoutKey(img?.imageId);
+  if (from === to) return intro;
+  const layouts = { ...(intro.layouts || {}) };
+  layouts[from] = Object.fromEntries(INTRO_LOOK.map((k) => [k, intro[k]]));
+  const saved = layouts[to];
+  delete layouts[to];
+  if (keepKeys) for (const k of Object.keys(layouts)) if (k !== 'auto' && !keepKeys.includes(k)) delete layouts[k];
+  const blank = createIntro();
+  return {
+    ...intro,
+    ...(img
+      ? { imageId: img.imageId, imageUrl: img.url, thumbUrl: img.thumbUrl, imageWidth: img.width, imageHeight: img.height }
+      : { imageId: null, imageUrl: null, thumbUrl: null, imageWidth: null, imageHeight: null }),
+    textElements: saved?.textElements || [],
+    overlayColor: saved?.overlayColor ?? blank.overlayColor,
+    overlayOpacity: saved?.overlayOpacity ?? blank.overlayOpacity,
+    showFooter: saved?.showFooter, // undefined = default (cover only)
+    layouts,
   };
 }
 
@@ -137,4 +186,37 @@ export function collectImageIds(story) {
   if (story.intro?.imageId) ids.add(story.intro.imageId);
   (story.scenes || []).forEach((s) => s.imageId && ids.add(s.imageId));
   return [...ids];
+}
+
+/**
+ * Points image references at new files: `changes` maps an old image id to
+ * { imageId, url, thumbUrl } (e.g. after the server filed an upload into the story's
+ * folder, or copied a shared image). Returns a new story; untouched parts are reused.
+ */
+export function relinkImages(story, changes) {
+  if (!story || !changes || !Object.keys(changes).length) return story;
+  const ref = (r) => {
+    const c = r?.imageId && changes[r.imageId];
+    return c ? { ...r, imageId: c.imageId, url: c.url, thumbUrl: c.thumbUrl } : r;
+  };
+  const framed = (r) => {
+    const c = r?.imageId && changes[r.imageId];
+    return c ? { ...r, imageId: c.imageId, imageUrl: c.url, thumbUrl: c.thumbUrl } : r;
+  };
+  const out = { ...story };
+  if (story.coverImage) out.coverImage = ref(story.coverImage);
+  if (story.thumbnail) out.thumbnail = ref(story.thumbnail);
+  if (story.intro) {
+    out.intro = framed(story.intro);
+    // Saved per-background intro layouts are keyed by image id: follow the new ids.
+    const layouts = story.intro.layouts;
+    if (layouts && Object.keys(layouts).some((k) => changes[k] && changes[k].imageId !== k)) {
+      out.intro = {
+        ...out.intro,
+        layouts: Object.fromEntries(Object.entries(layouts).map(([k, v]) => [changes[k]?.imageId || k, v])),
+      };
+    }
+  }
+  if (story.scenes) out.scenes = story.scenes.map(framed);
+  return out;
 }

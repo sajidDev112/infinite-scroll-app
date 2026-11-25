@@ -7,9 +7,10 @@ import { cameraAt, cameraTransform, hasOpening, sortSteps, transformToCss } from
 import { enterOffset, stateTransform, textStateAt, textWindows } from '../engine/text.js';
 import { buildLayout, sceneIndexAt } from '../engine/layout.js';
 import { TextElementView } from './TextElementView.jsx';
-import { IntroBackdrop } from './SceneFrame.jsx';
+import { IntroBackdrop, SceneOverlay } from './SceneFrame.jsx';
 import { applyBackdrop, applyLens, backdropStyle } from './lens.js';
 import { IntroFooter } from './IntroFooter.jsx';
+import { introShowsFooter } from '../engine/defaults.js';
 import { loadStoryFonts } from './customFonts.js';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -364,6 +365,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
                 <img ref={(el) => (fullImgEls.current[i] = el)} className="sp-img sp-full" alt="" draggable={false} />
               </div>
             </div>
+            <SceneOverlay scene={scene} />
             <div className="sp-texts">
               {texts.map(({ t }, k) => (
                 <TextElementView
@@ -393,7 +395,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
               />
             ))}
           </div>
-          <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} shareUrl={shareUrl} footer={footer} />
+          {introShowsFooter(story) && <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} shareUrl={shareUrl} footer={footer} />}
           {!scenes.length && <div className="sp-empty">This story has no scenes yet.</div>}
         </div>
 

@@ -294,7 +294,7 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
             options={[{ value: 'focal', label: 'Focal point', icon: Crosshair }, { value: 'stage', label: 'Stage & text', icon: Monitor }]}
           />
           <div className="flex items-center gap-2">
-            {showStage && <Button size="sm" icon={Plus} onClick={addText}>Add text</Button>}
+            <Button size="sm" variant="primary" icon={Plus} onClick={addText} title={`Add text to step ${stepIndex + 1}`}>Add text</Button>
             <StageControls aspect={aspect} onAspect={setAspect} zoom={zoom} onZoom={setZoom} />
           </div>
         </div>
@@ -354,7 +354,7 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
           onChange={setTab}
           tabs={[
             { value: 'step', label: `Step ${stepIndex + 1}` },
-            { value: 'text', label: 'Text', disabled: !text },
+            { value: 'text', label: 'Text' },
             { value: 'scene', label: 'Scene' },
           ]}
         />
@@ -375,6 +375,17 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
               onSceneChange={(patch) => updScene((s) => Object.assign(s, patch))}
               onApplySpeedToAll={applySpeedToAll}
             />
+          )}
+          {tab === 'text' && !text && (
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm text-ink-300">
+                {step.textElements.length
+                  ? 'Select a text box on the canvas to edit it, or add another one.'
+                  : `Step ${stepIndex + 1} has no text yet.`}
+              </p>
+              <p className="mt-1 text-xs text-ink-500">Text belongs to this step of this scene only.</p>
+              <Button className="mt-4" size="sm" variant="primary" icon={Plus} onClick={addText}>Add text</Button>
+            </div>
           )}
           {tab === 'text' && text && (
             <TextInspector

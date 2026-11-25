@@ -83,6 +83,7 @@ html.sp-playing::-webkit-scrollbar { display: none; }
 .sp-intro { z-index: 5; will-change: opacity, transform; }
 .sp-intro-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .sp-intro-overlay { position: absolute; inset: 0; }
+.sp-scene-overlay { position: absolute; inset: 0; pointer-events: none; }
 
 .sp-empty {
   position: absolute; inset: auto 0 12% 0; text-align: center;

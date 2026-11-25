@@ -2,13 +2,13 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { Check, ImageOff, Play, Plus, Square } from 'lucide-react';
 import { stageUnit } from '@shared/engine/constants.js';
-import { createIntroText, uid } from '@shared/engine/defaults.js';
+import { createIntroText, introShowsFooter, switchIntroImage, uid } from '@shared/engine/defaults.js';
 import { enterOffset } from '@shared/engine/text.js';
 import { IntroBackdrop } from '@shared/react/SceneFrame.jsx';
 import { IntroFooter } from '@shared/react/IntroFooter.jsx';
 import { TextElementView } from '@shared/react/TextElementView.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { ColorField, RangeField, Segmented } from '../../components/ui/Fields.jsx';
+import { ColorField, RangeField, Segmented, Toggle } from '../../components/ui/Fields.jsx';
 import StageCanvas from './StageCanvas.jsx';
 import TextInspector from './TextInspector.jsx';
 import LayerList from './LayerList.jsx';
@@ -52,6 +52,7 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
   const footer = useFooterSettings();
   const intro = story.intro;
   const texts = intro.textElements || [];
+  const showFooter = introShowsFooter(story);
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState('text');
   const [zoom, setZoom] = useState(1);
@@ -94,11 +95,13 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
     setTab('text');
   };
 
-  const setImage = (img) => update((d) => {
-    Object.assign(d.intro, img
-      ? { imageId: img.imageId, imageUrl: img.url, thumbUrl: img.thumbUrl, imageWidth: img.width, imageHeight: img.height }
-      : { imageId: null, imageUrl: null, thumbUrl: null, imageWidth: null, imageHeight: null });
-  });
+  // Each background keeps its own text and overlay; switching swaps them in and out.
+  const setImage = (img) => {
+    if ((img?.imageId || null) === (intro.imageId || null)) return;
+    setSelectedId(null);
+    const next = switchIntroImage(intro, img, images.map((i) => i.imageId));
+    update((d) => { d.intro = next; });
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto lg:flex-row lg:overflow-hidden">
@@ -106,7 +109,7 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
       <aside className="panel flex w-full shrink-0 flex-col border-b lg:w-52 lg:border-r lg:border-b-0 xl:w-60">
         <div className="px-4 pt-4 pb-3">
           <h3 className="section-title">Background image</h3>
-          <p className="mt-1 text-xs text-ink-400">Shown behind the intro text.</p>
+          <p className="mt-1 text-xs text-ink-400">Each image keeps its own text and overlay. Viewers see the one with the tick.</p>
         </div>
         <div className="flex gap-2 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
           <button
@@ -176,7 +179,7 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
             <>
               <IntroBackdrop intro={intro} fallbackImage={fallback} />
               {/* Same share icons + museum logo the viewer shows; keep text clear of it. */}
-              <IntroFooter interactive={false} title={story.title} footer={footer} />
+              {showFooter && <IntroFooter interactive={false} title={story.title} footer={footer} />}
               {playing && <IntroPlayback texts={texts} width={width} height={height} onDone={() => setPlaying(false)} />}
             </>
           )}
@@ -229,6 +232,13 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
                 />
                 <p className="hint">Slide over: the first image scrolls up over the title like a page.</p>
               </div>
+              <Toggle
+                id="intro-show-footer"
+                checked={showFooter}
+                onChange={(v) => update((d) => { d.intro.showFooter = v; })}
+                label="Logo & social icons"
+                description="Shown on the cover image by default. Each background image has its own setting."
+              />
               <ColorField label="Overlay color" value={intro.overlayColor} onChange={(v) => update((d) => { d.intro.overlayColor = v; })} />
               <RangeField label="Overlay opacity" value={intro.overlayOpacity ?? 0.35} min={0} max={0.95} step={0.01} scale={100} suffix="%" hint="Darkens the image so text stays readable." onChange={(v) => update((d) => { d.intro.overlayOpacity = v; })} />
             </div>
