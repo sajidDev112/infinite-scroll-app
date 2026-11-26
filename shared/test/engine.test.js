@@ -235,3 +235,139 @@ test('logo and social icons show on the cover image only, unless set per backgro
   assert.equal(introShowsFooter({ ...story, intro: { imageId: 'coverId', showFooter: false } }), false);
   assert.equal(introShowsFooter({ scenes: story.scenes, intro: { imageId: 'sceneId' } }), true, 'no cover: first scene counts as cover');
 });
+
+test('intro cover crop: free box, edges resize one side, viewer placement, per-background crops', async () => {
+  const { introCropBox, isDefaultIntroCrop, moveCropBox, resizeCropBox, zoomCropBox, introCropView, fitCropBoxToShape, switchIntroImage, createIntro } = await import('../engine/defaults.js');
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
+  const same = (box, exp) => ['x', 'y', 'w', 'h'].every((k) => near(box[k], exp[k]));
+  // Old stories without a crop: the whole image.
+  assert.deepEqual(introCropBox(undefined), { x: 0, y: 0, w: 1, h: 1 });
+  assert.ok(isDefaultIntroCrop(null));
+  assert.ok(isDefaultIntroCrop({ x: 0, y: 0, w: 1, h: 1 }));
+  // Bottom edge up: only the height changes; right edge in: only the width changes.
+  const box = { x: 0.2, y: 0.2, w: 0.5, h: 0.5 };
+  assert.ok(same(resizeCropBox(box, 's', 0.3, -0.1), { x: 0.2, y: 0.2, w: 0.5, h: 0.4 }), 'bottom edge ignores sideways movement');
+  assert.ok(same(resizeCropBox(box, 'e', -0.1, 0.3), { x: 0.2, y: 0.2, w: 0.4, h: 0.5 }), 'right edge ignores up/down movement');
+  assert.ok(same(resizeCropBox(box, 'n', 0, -1), { x: 0.2, y: 0, w: 0.5, h: 0.7 }), 'top edge stops at the image top');
+  assert.ok(same(resizeCropBox(box, 'nw', 0.1, 0.1), { x: 0.3, y: 0.3, w: 0.4, h: 0.4 }));
+  assert.ok(near(resizeCropBox(box, 'w', 1, 0).w, 0.05), 'never smaller than 5%');
+  assert.ok(same(moveCropBox(box, 1, -1), { x: 0.5, y: 0, w: 0.5, h: 0.5 }), 'moving stays inside the image');
+  assert.ok(same(zoomCropBox(box, 2), { x: 0.325, y: 0.325, w: 0.25, h: 0.25 }));
+  // Viewer: 1000×2000 image, box = top half (1000×1000 px, square) on a 1600×900 screen.
+  // Exactly the box shows: 900×900, centred, nothing above/below cut; sides left for the blur.
+  const v = introCropView({ x: 0, y: 0, w: 1, h: 0.5 }, 1000, 2000, 1600, 900);
+  assert.deepEqual(v.frame, { left: 350, top: 0, width: 900, height: 900 });
+  assert.ok(near(v.image.top, 0) && near(v.image.height, 1800) && !v.fillsScreen);
+  // A 200×100 px box (2:1) on a 1600×900 screen: 1600×800, the image offset so the box lines up.
+  const small = introCropView({ x: 0.4, y: 0.4, w: 0.2, h: 0.05 }, 1000, 2000, 1600, 900);
+  assert.deepEqual(small.frame, { left: 0, top: 50, width: 1600, height: 800 });
+  assert.ok(near(small.image.left, -400 * 8) && near(small.image.top, -800 * 8));
+  // Fit to screen shape: the square box becomes 16:9 inside itself and then fills the screen.
+  const fitted = fitCropBoxToShape({ x: 0, y: 0, w: 1, h: 0.5 }, 1000, 2000, 16 / 9);
+  assert.ok(same(fitted, { x: 0, y: 0.109375, w: 1, h: 0.28125 }));
+  assert.ok(introCropView(fitted, 1000, 2000, 1600, 900).fillsScreen);
+  // Crops saved by the first version ({ x, y, zoom }) still read: zoom 2 on 16:9 = half the full-width window.
+  assert.ok(same(introCropBox({ x: 0, y: 0, zoom: 2, aspect: 16 / 9 }, 1600, 1800), { x: 0, y: 0, w: 0.5, h: 0.25 }));
+  // Each background keeps its own crop.
+  const a = { imageId: 'a', url: 'a.jpg', width: 10, height: 10 };
+  const b = { imageId: 'b', url: 'b.jpg', width: 10, height: 10 };
+  let intro = switchIntroImage(createIntro(), a);
+  intro = { ...intro, crop: { x: 0.2, y: 0.1, zoom: 2 } };
+  intro = switchIntroImage(intro, b);
+  assert.equal(intro.crop, undefined, 'new background starts centred');
+  intro = switchIntroImage(intro, a);
+  assert.deepEqual(intro.crop, { x: 0.2, y: 0.1, zoom: 2 });
+});
+
+test('image credits: per image, shared by cover and scenes, intro follows its picture', async () => {
+  const { imageCreditFor, introImageCredit } = await import('../engine/defaults.js');
+  const story = {
+    coverImage: { imageId: 'cov', credit: '  Cover credit ' },
+    scenes: [{ imageId: 's1', imageCredit: 'Scene one' }, { imageId: 's2', imageCredit: '' }, { imageId: 'cov' }],
+    intro: {},
+  };
+  assert.equal(imageCreditFor(story, 'cov'), 'Cover credit');
+  assert.equal(imageCreditFor(story, 's1'), 'Scene one');
+  assert.equal(imageCreditFor(story, 's2'), '', 'empty credit = no icon');
+  assert.equal(introImageCredit(story), 'Cover credit', 'intro on Automatic uses the cover');
+  assert.equal(introImageCredit({ ...story, intro: { imageId: 's1' } }), 'Scene one');
+  assert.equal(introImageCredit({ scenes: story.scenes, intro: {} }), 'Scene one', 'no cover: scene 1');
+  // A scene image picked as the cover without its own credit still shows the scene's.
+  assert.equal(imageCreditFor({ coverImage: { imageId: 's1' }, scenes: story.scenes }, 's1'), 'Scene one');
+});
+
+test('a scene shows its own credit even when the cover uses the same picture', async () => {
+  const { sceneImageCredit } = await import('../engine/defaults.js');
+  const story = { coverImage: { imageId: 'x', credit: 'Cover' }, scenes: [{ imageId: 'x', imageCredit: 'Scene' }, { imageId: 'x' }] };
+  assert.equal(sceneImageCredit(story, story.scenes[0]), 'Scene');
+  assert.equal(sceneImageCredit(story, story.scenes[1]), 'Cover', 'no own credit: same picture elsewhere');
+});
+
+test('intro (i) button saves the credit on the picture the intro shows', async () => {
+  const { setImageCredit, introImageId, introImageCredit } = await import('../engine/defaults.js');
+  const story = { coverImage: { imageId: 'cov' }, scenes: [{ imageId: 's1' }, { imageId: 's2' }], intro: {} };
+  assert.equal(introImageId(story), 'cov', 'Automatic = the cover');
+  setImageCredit(story, 'cov', 'On the cover');
+  assert.equal(story.coverImage.credit, 'On the cover');
+  story.intro.imageId = 's2';
+  setImageCredit(story, introImageId(story), 'On scene 2');
+  assert.equal(story.scenes[1].imageCredit, 'On scene 2');
+  assert.equal(story.scenes[0].imageCredit, undefined);
+  assert.equal(introImageCredit(story), 'On scene 2');
+});
+
+test('credit edit box keeps spaces while typing', async () => {
+  const { editableImageCredit, imageCreditFor } = await import('../engine/defaults.js');
+  const story = { coverImage: { imageId: 'c', credit: 'Testing ' }, scenes: [{ imageId: 's', imageCredit: ' Scene ' }] };
+  assert.equal(editableImageCredit(story, 'c'), 'Testing ', 'trailing space kept for the edit box');
+  assert.equal(editableImageCredit(story, 's'), ' Scene ');
+  assert.equal(imageCreditFor(story, 'c'), 'Testing', 'viewers get it trimmed');
+});
+
+test('italic words: *markers*, toggling on a selection, plain text and font preloading', async () => {
+  const { parseItalics, stripItalics, toggleItalic, hasItalics } = await import('../engine/richText.js');
+  const { storyFontUses } = await import('../engine/fonts.js');
+  assert.deepEqual(parseItalics('A *Katar* of gold'), [{ text: 'A ', italic: false }, { text: 'Katar', italic: true }, { text: ' of gold', italic: false }]);
+  assert.equal(stripItalics('Left: *Katar*; Rajasthan'), 'Left: Katar; Rajasthan');
+  assert.ok(!hasItalics('5 * 3 = 15'), 'a lone asterisk is just an asterisk');
+  // Select "Katar " (with a trailing space): the markers hug the word.
+  const on = toggleItalic('A Katar of gold', 2, 8);
+  assert.deepEqual(on, { value: 'A *Katar* of gold', start: 3, end: 8 });
+  // Toggle again with the same word selected → back to plain.
+  assert.deepEqual(toggleItalic(on.value, on.start, on.end), { value: 'A Katar of gold', start: 2, end: 7 });
+  // No selection: the word at the caret.
+  assert.equal(toggleItalic('A Katar of gold', 4, 4).value, 'A *Katar* of gold');
+  // Font preloading includes the italic style when a text has italic words.
+  const uses = storyFontUses({ intro: { textElements: [{ fontFamily: 'Lato', fontWeight: 400, content: 'A *Katar*' }] } });
+  assert.deepEqual(uses.map((u) => u.style).sort(), ['italic', 'normal']);
+});
+
+test('links: [words](address), safe addresses only, add / change / remove', async () => {
+  const { parseRich, safeHref, setLink, removeLink, linkAt, stripItalics, hasLinks } = await import('../engine/richText.js');
+  assert.equal(safeHref('imp-art.org/journeys'), 'https://imp-art.org/journeys', 'bare address gets https://');
+  assert.equal(safeHref('www.metmuseum.org'), 'https://www.metmuseum.org');
+  assert.equal(safeHref('mailto:hi@x.org'), 'mailto:hi@x.org');
+  assert.equal(safeHref('javascript:alert(1)'), '', 'script links are refused');
+  assert.equal(safeHref('hello'), '');
+  // Parsing, with italics inside the link words.
+  const parts = parseRich('See the *Katar* [at the *Met*](https://metmuseum.org) today');
+  assert.deepEqual(parts.map((p) => (p.link ? `LINK(${p.link})` : p.text)), ['See the ', 'Katar', ' ', 'LINK(https://metmuseum.org)', ' today']);
+  assert.deepEqual(parts[3].parts, [{ text: 'at the ', italic: false }, { text: 'Met', italic: true }]);
+  // A link with an unsafe address shows just its words.
+  assert.deepEqual(parseRich('[click](javascript:x)'), [{ text: 'click', italic: false }]);
+  assert.equal(stripItalics('Go to [Impart](https://imp-art.org).'), 'Go to Impart.');
+  assert.ok(hasLinks('[a](https://a.org)') && !hasLinks('[a] (b)'));
+  // Add a link on a selection ("Metropolitan Museum " with a trailing space).
+  const text = 'Metropolitan Museum of Art, New York';
+  const added = setLink(text, 0, 20, 'https://metmuseum.org');
+  assert.equal(added.value, '[Metropolitan Museum](https://metmuseum.org) of Art, New York');
+  assert.equal(added.value.slice(added.start, added.end), 'Metropolitan Museum');
+  // Caret inside the link: change its address, then remove it.
+  const l = linkAt(added.value, 5);
+  assert.equal(l.href, 'https://metmuseum.org');
+  const changed = setLink(added.value, 5, 5, 'https://www.metmuseum.org/art');
+  assert.equal(changed.value, '[Metropolitan Museum](https://www.metmuseum.org/art) of Art, New York');
+  assert.equal(removeLink(changed.value, 5, 5).value, text);
+  assert.equal(setLink('Hello', 5, 5, 'https://x.org').value, '[Hello](https://x.org)', 'caret after a word links that word');
+  assert.equal(setLink('  ', 1, 1, 'https://x.org'), null, 'nothing selected');
+});

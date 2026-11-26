@@ -7,7 +7,7 @@ import { stageUnit } from '@shared/engine/constants.js';
 import { sceneLengths } from '@shared/engine/layout.js';
 import { sortSteps } from '@shared/engine/camera.js';
 import { useToast } from '../../context/ToastContext.jsx';
-import { cloneScene, collectImageIds, createStep, createTextElement, uid } from '@shared/engine/defaults.js';
+import { cloneScene, collectImageIds, createStep, createTextElement, sceneImageCredit, uid } from '@shared/engine/defaults.js';
 import { SceneFrame } from '@shared/react/SceneFrame.jsx';
 import { TextElementView } from '@shared/react/TextElementView.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -17,6 +17,7 @@ import { EmptyState } from '../../components/ui/Misc.jsx';
 import { uploadsApi } from '../../lib/api.js';
 import { cx } from '../../lib/utils.js';
 import StageCanvas from './StageCanvas.jsx';
+import CanvasCredit from './CanvasCredit.jsx';
 import FocalCanvas from './FocalCanvas.jsx';
 import StepTimeline from './StepTimeline.jsx';
 import TextInspector from './TextInspector.jsx';
@@ -150,6 +151,16 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
   const updScene = (fn) => update((d) => { const s = d.scenes.find((x) => x.sceneId === scene.sceneId); if (s) fn(s); });
   const updStep = (fn) => updScene((s) => { const st = s.animationSteps.find((x) => x.stepId === step.stepId); if (st) fn(st); });
   const updTexts = (fn) => updStep((st) => fn(st.textElements));
+
+  // The viewer's (i) credit icon on this scene's picture (both views); click it to write the credit.
+  const creditIcon = (
+    <CanvasCredit
+      key={scene.sceneId}
+      value={scene.imageCredit ?? sceneImageCredit(story, scene)}
+      onChange={(t) => updScene((s) => { s.imageCredit = t; })}
+      imageLabel={`Scene ${scenes.findIndex((s) => s.sceneId === scene.sceneId) + 1}`}
+    />
+  );
 
   const selectStep = (id) => {
     stopPreview();
@@ -314,9 +325,9 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
               renderBackground={({ width, height }) => (
                 <SceneFrame scene={scene} progress={preview ?? step.progress} width={width} height={height} mode={preview != null ? 'play' : 'edit'} />
               )}
-              overlay={preview != null && (
+              overlay={preview != null ? (
                 <span className="pointer-events-none absolute top-2 right-2 rounded bg-amber-300 px-2 py-0.5 text-[11px] font-semibold text-black">Preview {Math.round(preview * 100)}%</span>
-              )}
+              ) : creditIcon}
             />
           ) : (
             <>
@@ -328,6 +339,7 @@ export default function StepScenes({ story, update, aspect, setAspect, issues })
                 onChange={(n) => updStep((st) => { st.focalPoint.x = n.x; st.focalPoint.y = n.y; })}
                 onDragFocal={setDragFocal}
                 onSelectStep={selectStep}
+                overlay={creditIcon}
               />
               <MiniPreview scene={scene} step={step} aspect={aspect} focalOverride={dragFocal} />
             </>

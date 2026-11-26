@@ -62,6 +62,7 @@ export const TRANSITION_TYPES = [
 ];
 
 export const FONT_FAMILIES = [
+  { value: 'Lato', label: 'Lato (Impart)' },
   { value: 'Inter Variable', label: 'Inter' },
   { value: 'Playfair Display Variable', label: 'Playfair Display' },
   { value: 'Montserrat Variable', label: 'Montserrat' },

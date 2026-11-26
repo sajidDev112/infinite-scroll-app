@@ -1,3 +1,4 @@
+import { stripItalics } from '@shared/engine/richText.js';
 import { ArrowDown, ArrowUp, Copy, Trash2, Type } from 'lucide-react';
 import { cx } from '../../lib/utils.js';
 
@@ -17,7 +18,7 @@ export default function LayerList({ texts, selectedId, onSelect, onLayer, onDupl
           >
             <button type="button" onClick={() => onSelect(t.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
               <Type className="size-4 shrink-0 text-ink-400" />
-              <span className="truncate text-sm text-ink-100">{t.content?.trim() || <em className="text-rose-300">Empty text</em>}</span>
+              <span className="truncate text-sm text-ink-100">{stripItalics(t.content).trim() || <em className="text-rose-300">Empty text</em>}</span>
             </button>
             <div className="flex opacity-60 group-hover:opacity-100">
               <button type="button" disabled={i === 0} onClick={() => onLayer(t.id, 'up')} className="rounded p-1 text-ink-300 hover:text-white disabled:opacity-30" aria-label="Bring forward"><ArrowUp className="size-3.5" /></button>

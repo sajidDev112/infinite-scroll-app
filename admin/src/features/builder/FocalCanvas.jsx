@@ -24,7 +24,7 @@ const r4 = (v) => Math.round(v * 10000) / 10000;
  * Focal point editor: the whole image (contain-fit), the focal marker (click or drag),
  * and the exact region the viewer will show for this step's zoom on the chosen screen shape.
  */
-export default function FocalCanvas({ scene, steps, step, aspect, onChange, onSelectStep, onDragFocal }) {
+export default function FocalCanvas({ scene, steps, step, aspect, onChange, onSelectStep, onDragFocal, overlay }) {
   const [wrapRef, size] = useElementSize();
   const full = useHtmlImage(scene.imageUrl);
   const thumb = useHtmlImage(scene.thumbUrl);
@@ -152,6 +152,10 @@ export default function FocalCanvas({ scene, steps, step, aspect, onChange, onSe
           </span>
         )}
       </div>
+      {/* Things placed on the picture itself (e.g. the image credit icon). */}
+      {ready && overlay && (
+        <div className="pointer-events-none absolute" style={{ left: ox, top: oy, width: dw, height: dh }}>{overlay}</div>
+      )}
     </div>
   );
 }

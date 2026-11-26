@@ -141,7 +141,7 @@ export default function StageCanvas({
             </div>
             {guides.v && <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-fuchsia-400" />}
             {guides.h && <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-fuchsia-400" />}
-            {overlay}
+            {typeof overlay === 'function' ? overlay({ width, height }) : overlay}
           </div>
         )}
       </div>

@@ -2,8 +2,10 @@ import { ArrowDown, ArrowUp, Copy, Crosshair, Plus, Trash2, Type } from 'lucide-
 import { REFERENCE_SCROLL_LENGTH, SCROLL_LENGTH_MAX, SCROLL_LENGTH_MIN, TRANSITION_TYPES, ZOOM_PRESETS, ZOOM_SPEED_PRESETS } from '@shared/engine/constants.js';
 import { EASINGS } from '@shared/engine/easing.js';
 import { Button } from '../../components/ui/Button.jsx';
-import { ColorField, Field, Input, NumberInput, RangeField, Segmented, Select } from '../../components/ui/Fields.jsx';
+import { ColorField, Field, Input, NumberInput, RangeField, Segmented, Select, Textarea } from '../../components/ui/Fields.jsx';
+import { IMAGE_CREDIT_MAX } from '@shared/engine/defaults.js';
 import { cx } from '../../lib/utils.js';
+import { ItalicTextarea } from './ItalicWords.jsx';
 
 const THIRDS = [1 / 3, 0.5, 2 / 3];
 
@@ -208,6 +210,16 @@ export function SceneSettings({ scene, index, isLast, onChange, onApplyToAll }) 
       <Block title={`Scene ${index + 1}`}>
         <Field label="Scene name (optional)">
           <Input value={scene.title || ''} maxLength={200} placeholder={`Scene ${index + 1}`} onChange={(e) => onChange({ title: e.target.value })} />
+        </Field>
+        <Field label="Image credit" htmlFor={`scene-credit-${scene.sceneId}`} hint="Viewers see it when they hover the (i) icon at the bottom right of the image. Leave empty for no icon.">
+          <ItalicTextarea
+            id={`scene-credit-${scene.sceneId}`}
+            rows={3}
+            maxLength={IMAGE_CREDIT_MAX}
+            value={scene.imageCredit || ''}
+            placeholder="Title; artist; date; medium; size. Museum, city"
+            onChange={(v) => onChange({ imageCredit: v })}
+          />
         </Field>
         <dl className="grid grid-cols-2 gap-y-1 text-xs text-ink-400">
           <dt>Image</dt><dd className="text-right text-ink-200 tabular-nums">{scene.imageWidth}×{scene.imageHeight}</dd>

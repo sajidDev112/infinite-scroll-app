@@ -1,3 +1,4 @@
+import { hasItalics } from './richText.js';
 import { FONT_FAMILIES } from './constants.js';
 
 /**
@@ -97,10 +98,13 @@ export function fontFamilyOptions(customFonts = []) {
 /** Every font family / weight / style the story's text uses, e.g. for preloading. */
 export function storyFontUses(story) {
   const uses = new Map();
+  const use = (family, weight, style) => uses.set(`${family}|${weight}|${style}`, { family, weight, style });
   const add = (t) => {
     if (!t?.fontFamily) return;
-    const k = `${t.fontFamily}|${t.fontWeight ?? 600}|${t.fontStyle || 'normal'}`;
-    uses.set(k, { family: t.fontFamily, weight: t.fontWeight ?? 600, style: t.fontStyle || 'normal' });
+    const style = t.fontStyle || 'normal';
+    use(t.fontFamily, t.fontWeight ?? 600, style);
+    // *Italic words* use the other style of the same font.
+    if (hasItalics(t.content)) use(t.fontFamily, t.fontWeight ?? 600, style === 'italic' ? 'normal' : 'italic');
   };
   (story?.intro?.textElements || []).forEach(add);
   (story?.scenes || []).forEach((s) => (s.animationSteps || []).forEach((st) => (st.textElements || []).forEach(add)));

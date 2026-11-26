@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
-import { collectImageIds, createScene, imageRef } from '@shared/engine/defaults.js';
+import { IMAGE_CREDIT_MAX, collectImageIds, createScene, imageCreditFor, imageRef } from '@shared/engine/defaults.js';
 import { Field, Input, Select, Textarea } from '../../components/ui/Fields.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { ConfirmDialog } from '../../components/ui/Modal.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { uploadsApi, errorMessage } from '../../lib/api.js';
 import ImageUploader from './ImageUploader.jsx';
+import { ItalicTextarea } from './ItalicWords.jsx';
 import { ACCEPT, checkFile, useUploadQueue } from './useUploadQueue.js';
 
 /** Delete an uploaded file only when nothing in the local story uses it anymore.
@@ -77,7 +78,7 @@ function CoverPicker({ story, update }) {
               type="button"
               onClick={() => {
                 const old = cover?.imageId;
-                const ref = { imageId: s.imageId, url: s.imageUrl, thumbUrl: s.thumbUrl, width: s.imageWidth, height: s.imageHeight };
+                const ref = { imageId: s.imageId, url: s.imageUrl, thumbUrl: s.thumbUrl, width: s.imageWidth, height: s.imageHeight, ...(s.imageCredit ? { credit: s.imageCredit } : {}) };
                 update((d) => { d.coverImage = ref; });
                 releaseImage(old, { ...story, coverImage: ref });
                 setPicking(false);
@@ -89,6 +90,20 @@ function CoverPicker({ story, update }) {
             </button>
           ))}
         </div>
+      )}
+      {cover ? (
+        <Field label="Cover image credit" htmlFor="cover-credit" className="mt-4" hint="Viewers see it when they hover the (i) icon at the bottom right of the cover. Leave empty for no icon.">
+          <ItalicTextarea
+            id="cover-credit"
+            rows={2}
+            maxLength={IMAGE_CREDIT_MAX}
+            value={cover.credit ?? imageCreditFor(story, cover.imageId)}
+            placeholder="e.g. A ruler presents a document to visiting nobles; Mughal; c. 1700–1720. The Cleveland Museum of Art, Ohio"
+            onChange={(v) => update((d) => { d.coverImage.credit = v; })}
+          />
+        </Field>
+      ) : (
+        story.scenes.length > 0 && <p className="mt-3 text-xs text-ink-400">The cover uses scene 1, so it shows scene 1's image credit (set it in Scroll experience → Scene settings).</p>
       )}
       <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" onChange={(e) => { if (e.target.files?.[0]) upload(e.target.files[0]); e.target.value = ''; }} />
     </div>

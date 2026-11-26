@@ -7,3 +7,4 @@ export * from './defaults.js';
 export * from './validate.js';
 export * from './fonts.js';
 export * from './footer.js';
+export * from './richText.js';

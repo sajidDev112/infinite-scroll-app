@@ -10,6 +10,7 @@ import { EASINGS } from '@shared/engine/easing.js';
 import { ColorField, NumberInput, RangeField, Segmented, Select, Textarea, Toggle } from '../../components/ui/Fields.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { cx } from '../../lib/utils.js';
+import { FormatBar, italicShortcut } from './ItalicWords.jsx';
 
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -78,7 +79,8 @@ export default function TextInspector({ text, onChange, onDuplicate, onDelete, o
       </div>
 
       <Section title="Content">
-        <Textarea ref={contentRef} rows={3} value={text.content} maxLength={2000} onChange={(e) => set({ content: e.target.value })} placeholder="Type your text…" aria-label="Text content" />
+        <Textarea ref={contentRef} rows={3} value={text.content} maxLength={2000} onChange={(e) => set({ content: e.target.value })} onKeyDown={italicShortcut(text.content, (v) => set({ content: v }))} placeholder="Type your text…" aria-label="Text content" />
+        <FormatBar fieldRef={contentRef} value={text.content} onChange={(v) => set({ content: v })} className="-mt-2" />
       </Section>
 
       <Section title="Typography">
@@ -110,7 +112,7 @@ export default function TextInspector({ text, onChange, onDuplicate, onDelete, o
               { value: 'justify', label: '', icon: AlignJustify, title: 'Justify' },
             ]}
           />
-          <button type="button" aria-pressed={text.fontStyle === 'italic'} title="Italic" onClick={() => set({ fontStyle: text.fontStyle === 'italic' ? 'normal' : 'italic' })} className={cx('grid size-9 place-items-center rounded-lg border border-ink-700', text.fontStyle === 'italic' ? 'bg-ink-700 text-white' : 'text-ink-300 hover:text-white')}>
+          <button type="button" aria-pressed={text.fontStyle === 'italic'} title="Italic (whole text box)" aria-label="Italic (whole text box)" onClick={() => set({ fontStyle: text.fontStyle === 'italic' ? 'normal' : 'italic' })} className={cx('grid size-9 place-items-center rounded-lg border border-ink-700', text.fontStyle === 'italic' ? 'bg-ink-700 text-white' : 'text-ink-300 hover:text-white')}>
             <Italic className="size-4" />
           </button>
           <button type="button" aria-pressed={text.textDecoration === 'underline'} title="Underline" onClick={() => set({ textDecoration: text.textDecoration === 'underline' ? 'none' : 'underline' })} className={cx('grid size-9 place-items-center rounded-lg border border-ink-700', text.textDecoration === 'underline' ? 'bg-ink-700 text-white' : 'text-ink-300 hover:text-white')}>

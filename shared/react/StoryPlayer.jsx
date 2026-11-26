@@ -10,7 +10,8 @@ import { TextElementView } from './TextElementView.jsx';
 import { IntroBackdrop, SceneOverlay } from './SceneFrame.jsx';
 import { applyBackdrop, applyLens, backdropStyle } from './lens.js';
 import { IntroFooter } from './IntroFooter.jsx';
-import { introShowsFooter } from '../engine/defaults.js';
+import { introImageCredit, introShowsFooter, sceneImageCredit } from '../engine/defaults.js';
+import { ImageCredit } from './ImageCredit.jsx';
 import { loadStoryFonts } from './customFonts.js';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -369,6 +370,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
             <div className="sp-texts">
               {texts.map(({ t }, k) => (
                 <TextElementView
+                  liveLinks
                   key={`${t.id}-${k}`}
                   ref={(el) => {
                     textEls.current[i] = textEls.current[i] || [];
@@ -380,17 +382,21 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
                 />
               ))}
             </div>
+            <ImageCredit text={sceneImageCredit(story, scene)} />
           </div>
         ))}
 
         <div ref={introRef} className="sp-intro">
-          <IntroBackdrop intro={story?.intro} fallbackImage={{ url: introImage }} />
+          <IntroBackdrop intro={story?.intro} fallbackImage={{ url: introImage }}>
+            <ImageCredit text={introImageCredit(story)} />
+          </IntroBackdrop>
           <div className="sp-texts">
             {(story?.intro?.textElements || []).map((t, k) => (
               <TextElementView
                 key={t.id}
                 ref={(el) => (introTextEls.current[k] = el)}
                 text={t}
+                liveLinks
                 style={{ opacity: 0, transform: 'none' }}
               />
             ))}

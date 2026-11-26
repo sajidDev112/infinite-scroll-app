@@ -84,6 +84,8 @@ export const sceneSchema = z.object({
   imageHeight: z.number().int().positive(),
   order: z.number().int().min(0),
   title: z.string().max(200).optional().default(''),
+  // Shown to viewers behind the (i) icon on the image.
+  imageCredit: z.string().max(1000).optional(),
   scrollLength: num(1, 12).optional(),
   fit: z.enum(['cover', 'contain']).optional(),
   openWithFullImage: z.boolean().optional(),
@@ -96,8 +98,20 @@ export const sceneSchema = z.object({
 });
 
 export const imageRefSchema = z
-  .object({ imageId: id, url: urlish, thumbUrl: urlish.optional(), width: z.number().int().positive(), height: z.number().int().positive() })
+  .object({ imageId: id, url: urlish, thumbUrl: urlish.optional(), width: z.number().int().positive(), height: z.number().int().positive(), credit: z.string().max(1000).optional() })
   .nullable();
+
+// Part of the intro (cover) image the admin chose: a box in fractions of the image
+// (x, y = top-left, w, h = size); see introCropBox() in shared/engine/defaults.js.
+// `zoom` is the first crop format ({ x, y, zoom }), still read for drafts saved with it.
+const introCropSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().gt(0).max(1).optional(),
+  h: z.number().gt(0).max(1).optional(),
+  zoom: z.number().min(1).max(4).optional(),
+  aspect: z.number().positive().max(10).optional(),
+});
 
 export const introSchema = z.object({
   imageId: id.nullable().optional(),
@@ -110,6 +124,7 @@ export const introSchema = z.object({
   exitType: z.enum(['fade', 'slideOver']).optional(),
   textElements: z.array(textElementSchema).max(30).default([]),
   showFooter: z.boolean().optional(),
+  crop: introCropSchema.optional(),
   // Text + overlay kept for the other background choices (key = image id or 'auto').
   layouts: z
     .record(
@@ -119,6 +134,7 @@ export const introSchema = z.object({
         overlayColor: color.optional(),
         overlayOpacity: unit.optional(),
         showFooter: z.boolean().optional(),
+        crop: introCropSchema.optional(),
       }),
     )
     .refine((r) => Object.keys(r).length <= 60, 'Too many saved intro layouts.')

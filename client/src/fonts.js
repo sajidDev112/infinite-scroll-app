@@ -13,3 +13,12 @@ import '@fontsource-variable/space-grotesk/wght.css';
 import '@fontsource-variable/cormorant-garamond/wght.css';
 import '@fontsource-variable/cormorant-garamond/wght-italic.css';
 import '@fontsource/bebas-neue/400.css';
+// Lato (the Impart website's font): static weights, each with its italic.
+import '@fontsource/lato/300.css';
+import '@fontsource/lato/300-italic.css';
+import '@fontsource/lato/400.css';
+import '@fontsource/lato/400-italic.css';
+import '@fontsource/lato/700.css';
+import '@fontsource/lato/700-italic.css';
+import '@fontsource/lato/900.css';
+import '@fontsource/lato/900-italic.css';
