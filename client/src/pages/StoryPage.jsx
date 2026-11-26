@@ -16,6 +16,8 @@ export default function StoryPage() {
   const [chrome, setChrome] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [footer, setFooter] = useState(null);
+  // On the opening cover the cursor always stays visible.
+  const [atCover, setAtCover] = useState(true);
   const idle = useRef(0);
 
   useEffect(() => {
@@ -25,6 +27,13 @@ export default function StoryPage() {
     api.getStory(id, { signal: ctrl.signal }).then(setStory).catch((e) => !ctrl.signal.aborted && setError(e));
     return () => ctrl.abort();
   }, [id]);
+
+  useEffect(() => {
+    const check = () => setAtCover(window.scrollY < 8);
+    check();
+    window.addEventListener('scroll', check, { passive: true });
+    return () => window.removeEventListener('scroll', check);
+  }, []);
 
   // Intro footer (share buttons, logo, name) from admin Settings.
   useEffect(() => { api.getFooter().then(setFooter); }, []);
@@ -95,21 +104,22 @@ export default function StoryPage() {
   const shareUrl = resolveShareUrl(SHARE_URL || `${window.location.origin}${import.meta.env.BASE_URL}stories/{id}`, story.id);
 
   return (
-    <div style={{ cursor: chrome ? 'auto' : 'none' }}>
+    <div style={{ cursor: chrome || atCover ? 'auto' : 'none' }}>
       <StoryPlayer story={story} onExit={back} exitLabel="Back to stories" shareUrl={shareUrl} footer={footer}>
-        <div className={`absolute top-4 right-4 left-4 z-30 flex items-center justify-between transition-opacity duration-500 sm:top-6 sm:right-6 sm:left-6 ${chrome ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+        {/* Bottom left, as in the admin preview, so the top shows only the Impart header. */}
+        <div className={`absolute bottom-5 left-5 z-30 flex items-center gap-3 transition-opacity duration-500 ${chrome ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
           <button
             type="button"
             onClick={back}
-            className="flex h-10 items-center gap-2 rounded-full border border-white/15 bg-black/40 px-4 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/70 sm:h-11 sm:px-5"
+            className="flex h-10 items-center gap-2 rounded-full border border-white/15 bg-black/45 px-4 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/70"
           >
-            <ArrowLeft className="size-4" /> Stories
+            <ArrowLeft className="size-4" /> Back to stories
           </button>
           {canFullscreen && (
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="grid size-10 place-items-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md transition hover:bg-black/70 sm:size-11"
+              className="grid size-10 place-items-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md transition hover:bg-black/70"
               aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
               title={fullscreen ? 'Exit full screen' : 'Full screen'}
             >

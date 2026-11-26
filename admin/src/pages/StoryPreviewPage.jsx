@@ -39,7 +39,8 @@ export default function StoryPreviewPage() {
 
   return (
     <StoryPlayer story={story} onExit={back} exitLabel={backLabel} shareUrl={resolveShareUrl(import.meta.env.VITE_SHARE_URL, story.id)} footer={footer}>
-      <div className="absolute top-5 left-5 z-30 flex items-center gap-3">
+      {/* Bottom left, so the Impart header at the top looks as viewers see it. */}
+      <div className="absolute bottom-5 left-5 z-30 flex items-center gap-3">
         <button
           type="button"
           onClick={back}

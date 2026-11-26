@@ -127,8 +127,9 @@ export default function FooterSettings({ canEdit }) {
         <div className="space-y-4">
           <h3 className="text-[13px] font-semibold uppercase tracking-wide text-ink-400">Logo &amp; name</h3>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="grid h-20 w-36 shrink-0 place-items-center rounded-xl border border-ink-700 bg-[radial-gradient(circle_at_30%_20%,#3b3b46,#111116)] p-2">
-              <img src={footer.logo?.url || DEFAULT_LOGO_URL} alt="Logo" className={cx('max-h-full max-w-full object-contain', !footer.showLogo && 'opacity-30')} />
+            {/* Fixed box; any logo shape (tall, wide, square) is fitted inside without overflowing. */}
+            <div className="flex h-24 w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink-700 bg-[radial-gradient(circle_at_30%_20%,#3b3b46,#111116)] p-3 sm:w-44">
+              <img src={footer.logo?.url || DEFAULT_LOGO_URL} alt="Logo" className={cx('block h-full w-full object-contain', !footer.showLogo && 'opacity-30')} draggable={false} />
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" icon={uploading !== null ? Loader2 : ImageUp} disabled={disabled || uploading !== null} onClick={() => fileRef.current?.click()}>
@@ -238,7 +239,7 @@ export default function FooterSettings({ canEdit }) {
           style={{ '--u': '0.62px' }}
         >
           <div className="absolute inset-x-0 top-[22%] text-center font-['Playfair_Display_Variable',serif] text-3xl text-white/90">Story title</div>
-          <IntroFooter interactive={false} title="Story title" footer={footer} />
+          <IntroFooter interactive={false} title="Story title" author="Author name" footer={footer} />
         </div>
         <p className="hint">Shown at the bottom of every story's first screen, in the client site, desktop app and previews. Buttons set to “Open my link” without a link are hidden.</p>
       </div>

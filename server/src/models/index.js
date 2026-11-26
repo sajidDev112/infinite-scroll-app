@@ -26,6 +26,7 @@ const storySchema = new Schema({
   _id: idField,
   title: { type: String, default: '' },
   description: { type: String, default: '' },
+  author: { type: String, default: '' }, // shown on the cover as 'By …'
   category: { type: String, default: '' },
   status: { type: String, enum: ['draft', 'active', 'inactive'], default: 'draft', index: true },
   coverImage: { type: Mixed, default: null },
@@ -56,6 +57,7 @@ const publishedStorySchema = new Schema({
   storyId: { type: String, required: true },
   title: { type: String, default: '' },
   description: { type: String, default: '' },
+  author: { type: String, default: '' }, // shown on the cover as 'By …'
   category: { type: String, default: '' },
   coverImage: { type: Mixed, default: null },
   intro: { type: Mixed, default: null },

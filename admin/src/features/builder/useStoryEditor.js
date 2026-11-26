@@ -4,7 +4,7 @@ import { createEmptyStory, createIntro, relinkImages } from '@shared/engine/defa
 import { storiesApi, errorMessage } from '../../lib/api.js';
 import { loadPrefs } from '../../lib/utils.js';
 
-const CONTENT_KEYS = ['title', 'description', 'category', 'coverImage', 'status', 'intro', 'scenes'];
+const CONTENT_KEYS = ['title', 'description', 'author', 'category', 'coverImage', 'status', 'intro', 'scenes'];
 const META_KEYS = ['id', 'isPublished', 'publishedAt', 'hasUnpublishedChanges', 'createdAt', 'updatedAt', 'sceneCount'];
 
 export const contentOf = (story) => Object.fromEntries(CONTENT_KEYS.map((k) => [k, story[k]]));

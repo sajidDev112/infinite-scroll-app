@@ -85,6 +85,8 @@ export const uploadsApi = {
 /** Site-wide settings (admins can save; editors can read). */
 export const settingsApi = {
   getFooter: () => http.get('/settings/footer').then((r) => r.data.footer),
+  // Same footer, readable without signing in (login page logo).
+  getPublicFooter: () => http.get('/desktop/settings').then((r) => r.data.footer),
   saveFooter: (footer) => http.put('/settings/footer', footer).then((r) => r.data.footer),
   resetFooter: () => http.delete('/settings/footer').then((r) => r.data.footer),
 };

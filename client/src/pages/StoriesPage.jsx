@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowRight, BookOpen, WifiOff } from 'lucide-react';
-import { BRAND_NAME } from '@shared/react/index.js';
+import { BRAND_NAME, IMPART_HEADER, MenuIcon, SearchIcon } from '@shared/react/index.js';
 import { api } from '../api.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -49,6 +49,10 @@ export default function StoriesPage() {
   const [status, setStatus] = useState(data ? 'ready' : 'loading');
   const [error, setError] = useState('');
   const [category, setCategory] = useState('');
+  // Site logo: the one uploaded in admin Settings (same everywhere), else the built-in MAP logo.
+  const [logoUrl, setLogoUrl] = useState(null);
+  useEffect(() => { api.getFooter().then((f) => setLogoUrl(f?.logo?.url || null)).catch(() => {}); }, []);
+  const logo = logoUrl || `${import.meta.env.BASE_URL}brand-logo.png`;
 
   useEffect(() => { document.title = `Stories · ${BRAND_NAME}`; }, []);
 
@@ -82,11 +86,21 @@ export default function StoriesPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/85 backdrop-blur-md">
+      {/* Fixed at the top of the Stories page (the story cover header is the one that scrolls away). */}
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-ink-950/90 backdrop-blur-md">
         <div className="mx-auto flex h-20 max-w-[1600px] items-center gap-4 px-5 sm:h-24 sm:px-10">
           <Link to="/stories" className="flex shrink-0 items-center" aria-label={`${BRAND_NAME} — all stories`}>
-            <img src={`${import.meta.env.BASE_URL}brand-logo.png`} alt={BRAND_NAME} className="h-11 w-auto sm:h-14" />
+            <img src={logo} alt={BRAND_NAME} className="h-11 w-auto max-w-[180px] object-contain object-left sm:h-14" />
           </Link>
+          {/* Search and menu, as on the story cover (Impart site). */}
+          <nav className="ml-auto flex items-center gap-6 text-white sm:gap-9" aria-label={`${IMPART_HEADER.name} site`}>
+            <a href={IMPART_HEADER.searchUrl} target="_blank" rel="noopener noreferrer" aria-label={`Search ${IMPART_HEADER.name} (opens in a new tab)`} className="block size-6 opacity-90 transition hover:opacity-100 sm:size-7">
+              <SearchIcon />
+            </a>
+            <a href={IMPART_HEADER.menuUrl} target="_blank" rel="noopener noreferrer" aria-label={`${IMPART_HEADER.name} menu (opens in a new tab)`} className="block size-7 opacity-90 transition hover:opacity-100 sm:size-8">
+              <MenuIcon />
+            </a>
+          </nav>
         </div>
       </header>
 
@@ -151,7 +165,7 @@ export default function StoriesPage() {
 
           <footer className="border-t border-white/10">
             <div className="mx-auto flex max-w-[1600px] flex-col items-center gap-3 px-5 py-10 text-center sm:flex-row sm:justify-between sm:px-10 sm:text-left">
-              <img src={`${import.meta.env.BASE_URL}brand-logo.png`} alt="" className="h-10 w-auto opacity-80" />
+              <img src={logo} alt="" className="h-10 w-auto max-w-[160px] object-contain opacity-80" />
               <p className="text-xs text-white/45">© {new Date().getFullYear()} {BRAND_NAME}</p>
             </div>
           </footer>

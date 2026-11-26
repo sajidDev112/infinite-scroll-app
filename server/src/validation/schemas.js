@@ -144,6 +144,8 @@ export const introSchema = z.object({
 const storyFields = {
   title: z.string().trim().min(1, 'Story title is required.').max(160),
   description: z.string().max(2000).default(''),
+  // Who wrote the story; shown on the cover as 'By …'. Empty = no byline.
+  author: z.string().trim().max(120).optional(),
   category: z.string().trim().max(60).default(''),
   coverImage: imageRefSchema.default(null),
   status: z.enum(STORY_STATUSES).default('draft'),
@@ -157,6 +159,7 @@ export const updateStorySchema = z
   .object({
     title: storyFields.title,
     description: z.string().max(2000),
+    author: z.string().trim().max(120),
     category: z.string().trim().max(60),
     coverImage: imageRefSchema,
     status: z.enum(STORY_STATUSES),

@@ -6,6 +6,7 @@ import { createIntroText, fitCropBoxToShape, introCropBox, editableImageCredit, 
 import { enterOffset } from '@shared/engine/text.js';
 import { IntroBackdrop } from '@shared/react/SceneFrame.jsx';
 import { IntroFooter } from '@shared/react/IntroFooter.jsx';
+import { IntroHeader } from '@shared/react/IntroHeader.jsx';
 import { TextElementView } from '@shared/react/TextElementView.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { ColorField, RangeField, Segmented, Toggle } from '../../components/ui/Fields.jsx';
@@ -368,7 +369,9 @@ export default function StepIntro({ story, update, aspect, setAspect }) {
             <>
               <IntroBackdrop intro={intro} fallbackImage={fallback} crop={crop} />
               {/* Same share icons + museum logo the viewer shows; keep text clear of it. */}
-              {showFooter && !cropping && <IntroFooter interactive={false} title={story.title} footer={footer} />}
+              {showFooter && !cropping && <IntroFooter interactive={false} title={story.title} author={story.author} footer={footer} />}
+              {/* Impart header (logo, search, menu) that viewers see on the cover. */}
+              {!cropping && <IntroHeader interactive={false} logoUrl={footer?.logo?.url} />}
               {playing && <IntroPlayback texts={texts} width={width} height={height} onDone={() => setPlaying(false)} />}
               {cropping && <CropLayer src={cropSrc} crop={crop} iw={cropW} ih={cropH} aspect={width / height} onLive={setLiveCrop} onCommit={saveCrop} />}
             </>

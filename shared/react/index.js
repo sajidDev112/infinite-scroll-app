@@ -5,3 +5,4 @@ export { IntroFooter, BRAND_NAME, DEFAULT_LOGO_URL, DEFAULT_SHARE_URL, resolveSh
 export { installFonts, initCustomFonts, loadStoryFonts } from './customFonts.js';
 export { ImageCredit } from './ImageCredit.jsx';
 export { RichText } from './RichText.jsx';
+export { IntroHeader, IMPART_HEADER, SearchIcon, MenuIcon } from './IntroHeader.jsx';

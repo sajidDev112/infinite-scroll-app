@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { Spinner } from '../ui/Misc.jsx';
 import { ConfirmDialog } from '../ui/Modal.jsx';
 import { cx } from '../../lib/utils.js';
+import { useFooterSettings } from '../../hooks/useFooterSettings.js';
 
 export function ProtectedRoute({ children }) {
   const { status } = useAuth();
@@ -30,10 +31,19 @@ const NAV = [
 ];
 
 export function Brand({ className, size = 'md' }) {
+  // The logo uploaded in Settings → Story intro footer, so it is the same everywhere; else MAP.
+  const footer = useFooterSettings();
+  const custom = footer?.logo?.url;
+  const name = footer?.brandName || 'MAP — Museum of Art & Photography';
   return (
     <div className={cx('flex items-center', className)}>
       {/* White logo on transparent background — made for the dark UI. */}
-      <img src={`${import.meta.env.BASE_URL}brand-logo.png`} alt="MAP — Museum of Art & Photography" className={cx('w-auto select-none', size === 'sm' ? 'h-10' : 'h-20')} draggable={false} />
+      <img
+        src={custom || `${import.meta.env.BASE_URL}brand-logo.png`}
+        alt={name}
+        className={cx('w-auto select-none object-contain object-left', size === 'sm' ? 'h-10 max-w-[140px]' : 'h-20 max-w-[200px]')}
+        draggable={false}
+      />
     </div>
   );
 }

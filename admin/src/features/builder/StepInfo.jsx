@@ -9,6 +9,7 @@ import { uploadsApi, errorMessage } from '../../lib/api.js';
 import ImageUploader from './ImageUploader.jsx';
 import { ItalicTextarea } from './ItalicWords.jsx';
 import { ACCEPT, checkFile, useUploadQueue } from './useUploadQueue.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 /** Delete an uploaded file only when nothing in the local story uses it anymore.
  *  The server additionally refuses if any saved story still references it. */
@@ -112,6 +113,9 @@ function CoverPicker({ story, update }) {
 
 export default function StepInfo({ story, update, errors: rawErrors, onBusyChange }) {
   const toast = useToast();
+  const { admin } = useAuth();
+  // A new story starts with the creator's name (the server uses it too if left untouched).
+  const authorValue = story.author ?? (story.id ? '' : admin?.name || '');
   // Errors from the last Continue attempt, hidden as soon as the field becomes valid.
   const errors = {
     title: story.title.trim() ? undefined : rawErrors.title,
@@ -203,6 +207,16 @@ export default function StepInfo({ story, update, errors: rawErrors, onBusyChang
             </Field>
             <Field label="Description" htmlFor="desc" hint={`${story.description?.length || 0}/2000`}>
               <Textarea id="desc" value={story.description} maxLength={2000} rows={2} placeholder="A short summary shown under the title." onChange={(e) => update((d) => { d.description = e.target.value; })} />
+            </Field>
+            <Field
+              label="Author"
+              htmlFor="author"
+              hint="Shown on the cover as “By …”. Leave empty for no byline."
+              right={admin?.name && authorValue !== admin.name ? (
+                <button type="button" className="text-xs text-accent-300 hover:underline" onClick={() => update((d) => { d.author = admin.name; })}>Use my name</button>
+              ) : null}
+            >
+              <Input id="author" value={authorValue} maxLength={120} placeholder="e.g. Aniruddha Sen Gupta" onChange={(e) => update((d) => { d.author = e.target.value; })} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Category" htmlFor="cat" hint="Optional. Used for filters.">

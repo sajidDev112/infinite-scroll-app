@@ -71,6 +71,8 @@ export async function createStory(input, admin) {
   const base = {
     title: input.title,
     description: input.description || '',
+    // Defaults to the name of the admin creating the story; editable in the editor.
+    author: input.author ?? admin?.name ?? '',
     category: input.category || '',
     coverImage: input.coverImage || null,
     status: input.status || 'draft',
@@ -164,6 +166,7 @@ export async function publishStory(id, admin) {
     storyId: story._id,
     title: story.title,
     description: story.description || '',
+    author: story.author || '',
     category: story.category || '',
     coverImage: d.thumbnail,
     intro: story.intro || createIntro(),
@@ -204,6 +207,7 @@ export async function duplicateStory(id, admin) {
   return createStory({
     title: `${source.title} (Copy)`.slice(0, 160),
     description: source.description,
+    author: source.author || '',
     category: source.category,
     coverImage: source.coverImage,
     status: 'draft',

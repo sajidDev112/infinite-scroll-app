@@ -12,6 +12,7 @@ import { applyBackdrop, applyLens, backdropStyle } from './lens.js';
 import { IntroFooter } from './IntroFooter.jsx';
 import { introImageCredit, introShowsFooter, sceneImageCredit } from '../engine/defaults.js';
 import { ImageCredit } from './ImageCredit.jsx';
+import { IntroHeader } from './IntroHeader.jsx';
 import { loadStoryFonts } from './customFonts.js';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -67,6 +68,7 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
   const stageRef = useRef(null);
   const introRef = useRef(null);
   const hintRef = useRef(null);
+  const headerRef = useRef(null);
   const endRef = useRef(null);
   const barRef = useRef(null);
   const sceneEls = useRef([]);
@@ -232,9 +234,12 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
           tl.fromTo(sceneNodes[0], { yPercent: 100 }, { yPercent: 0, duration: seg.length, ...nofrom }, seg.start);
           tl.set(introRef.current, { autoAlpha: 0 }, seg.start + seg.length);
           tl.fromTo(hintRef.current, { autoAlpha: 1 }, { autoAlpha: 0, duration: seg.length * 0.3, ...nofrom }, seg.start);
+          // The Impart header belongs to the cover only: gone as soon as scrolling starts.
+          tl.fromTo(headerRef.current, { autoAlpha: 1 }, { autoAlpha: 0, duration: seg.length * 0.06, ...nofrom }, seg.start);
         } else if (seg.type === 'intro') {
           tl.fromTo(introRef.current, { autoAlpha: 1, scale: 1 }, { autoAlpha: 0, scale: 1.04, duration: seg.length, ease: 'power1.in', ...nofrom }, seg.start);
           tl.fromTo(hintRef.current, { autoAlpha: 1 }, { autoAlpha: 0, duration: seg.length * 0.4, ...nofrom }, seg.start);
+          tl.fromTo(headerRef.current, { autoAlpha: 1 }, { autoAlpha: 0, duration: seg.length * 0.06, ...nofrom }, seg.start);
         } else if (seg.type === 'scene') {
           if (seg.opening) {
             const open = { p: -1 };
@@ -401,7 +406,8 @@ export default function StoryPlayer({ story, onExit, exitLabel = 'Back to storie
               />
             ))}
           </div>
-          {introShowsFooter(story) && <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} shareUrl={shareUrl} footer={footer} />}
+          <IntroHeader ref={headerRef} logoUrl={footer?.logo?.url} />
+          {introShowsFooter(story) && <IntroFooter storyId={story?.id} title={story?.title} description={story?.description} author={story?.author} shareUrl={shareUrl} footer={footer} />}
           {!scenes.length && <div className="sp-empty">This story has no scenes yet.</div>}
         </div>
 

@@ -17,7 +17,12 @@ export function useFooterSettings() {
   useEffect(() => {
     listeners.add(setFooter);
     if (!cached) {
-      pending ||= settingsApi.getFooter().then(setFooterSettings).catch(() => {}).finally(() => { pending = null; });
+      pending ||= settingsApi
+        .getFooter()
+        .catch(() => settingsApi.getPublicFooter()) // not signed in yet (login page)
+        .then(setFooterSettings)
+        .catch(() => {})
+        .finally(() => { pending = null; });
     }
     return () => listeners.delete(setFooter);
   }, []);

@@ -371,3 +371,15 @@ test('links: [words](address), safe addresses only, add / change / remove', asyn
   assert.equal(setLink('Hello', 5, 5, 'https://x.org').value, '[Hello](https://x.org)', 'caret after a word links that word');
   assert.equal(setLink('  ', 1, 1, 'https://x.org'), null, 'nothing selected');
 });
+
+test('Cite button: citation text and button type', async () => {
+  const { storyCitation, footerType, DEFAULT_FOOTER } = await import('../engine/footer.js');
+  const date = new Date(2026, 10, 26);
+  assert.equal(
+    storyCitation({ title: 'Miniature Worlds', brandName: 'Museum of Art & Photography', url: 'https://example.org/stories/abc', date }),
+    'Miniature Worlds. Museum of Art & Photography. https://example.org/stories/abc (accessed 26 November 2026).',
+  );
+  assert.equal(storyCitation({ title: 'Why?', date }), 'Why? Accessed 26 November 2026.', 'no double full stop, no link');
+  assert.deepEqual(footerType('cite').modes, ['action']);
+  assert.ok(DEFAULT_FOOTER.buttons.some((b) => b.type === 'cite'), 'on by default for new sites');
+});

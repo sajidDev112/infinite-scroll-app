@@ -108,6 +108,7 @@ test('story create, list, search and status rules', async () => {
   const r = await api('POST', '/api/stories', { body: { title: 'The Lighthouse', description: 'Storm night', scenes: [scene] } });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   storyId = r.body.story.id;
+  assert.equal(r.body.story.author, 'Ada', 'a new story is by the admin who created it');
   assert.equal(r.body.story.sceneCount, 1);
   assert.deepEqual(r.body.story.imageIds, [img.id]);
   // Saving files the upload into the story's own folder (same image id, new link).
@@ -162,6 +163,7 @@ test('publish validates, snapshots, and desktop only sees published+active', asy
   const detail = await api('GET', `/api/desktop/stories/${storyId}`, { auth: null });
   assert.equal(detail.body.story.scenes[0].animationSteps[1].zoomLevel, 2.5);
   assert.equal(detail.body.story.imageIds, undefined);
+  assert.equal(detail.body.story.author, 'Ada', 'the byline is published');
 
   // Editing the working copy does not change the live story until re-published.
   const upd = await api('PUT', `/api/stories/${storyId}`, { body: { title: 'The Lighthouse (edited)' } });
@@ -211,7 +213,7 @@ test('unknown routes and bad ids', async () => {
 test('intro footer settings: defaults, admin-only save, link validation, public read', async () => {
   const def = await api('GET', '/api/settings/footer');
   assert.equal(def.status, 200);
-  assert.deepEqual(def.body.footer.buttons.map((b) => b.type), ['like', 'copyLink', 'facebook', 'x', 'share']);
+  assert.deepEqual(def.body.footer.buttons.map((b) => b.type), ['like', 'copyLink', 'cite', 'facebook', 'x', 'share']);
   assert.equal(def.body.footer.logo, null);
 
   const footer = {

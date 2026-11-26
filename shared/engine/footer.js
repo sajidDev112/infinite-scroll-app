@@ -12,6 +12,7 @@
 export const FOOTER_BUTTON_TYPES = [
   { type: 'like', label: 'Like', modes: ['action'] },
   { type: 'copyLink', label: 'Copy link', modes: ['action'] },
+  { type: 'cite', label: 'Cite (copy a citation)', modes: ['action'] },
   { type: 'share', label: 'Share (device menu)', modes: ['action'] },
   { type: 'facebook', label: 'Facebook', modes: ['share', 'link'] },
   { type: 'x', label: 'X (Twitter)', modes: ['share', 'link'] },
@@ -37,6 +38,7 @@ export const DEFAULT_FOOTER = Object.freeze({
   buttons: [
     { type: 'like', enabled: true, mode: 'action', url: '' },
     { type: 'copyLink', enabled: true, mode: 'action', url: '' },
+    { type: 'cite', enabled: true, mode: 'action', url: '' },
     { type: 'facebook', enabled: true, mode: 'share', url: '' },
     { type: 'x', enabled: true, mode: 'share', url: '' },
     { type: 'share', enabled: true, mode: 'action', url: '' },
@@ -77,4 +79,15 @@ export function footerIssues(footer) {
     }
   });
   return issues;
+}
+
+/**
+ * Citation for a story, copied by the Cite button, e.g.
+ *   Miniature Worlds. Museum of Art & Photography. https://…/stories/abc (accessed 26 November 2026).
+ */
+export function storyCitation({ title, brandName, url, date = new Date() } = {}) {
+  const accessed = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const parts = [String(title || '').trim(), String(brandName || '').trim()].filter(Boolean).map((t) => (/[.!?]$/.test(t) ? t : `${t}.`));
+  const link = String(url || '').trim();
+  return [...parts, link ? `${link} (accessed ${accessed}).` : `Accessed ${accessed}.`].join(' ');
 }
